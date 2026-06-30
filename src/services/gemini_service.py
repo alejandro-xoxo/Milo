@@ -98,11 +98,15 @@ def generate_response(prompt: str, status_callback=None) -> dict:
     if status_callback:
         status_callback("Proceso completado.")
 
+    from src.services.db_service import get_tool_failure_status
+    active_engine = get_tool_failure_status("active_engine")["disabled_until"] or "agy"
+
     return {
         "response": response_text,
         "execution_log": [], # Ya no trackeamos herramientas de Python
-        "provider": "agy"
+        "provider": active_engine
     }
+
 
 def generate_audio_response(audio_bytes: bytes, mime_type: str = "audio/wav", status_callback=None) -> dict:
     import speech_recognition as sr
@@ -114,8 +118,36 @@ def generate_audio_response(audio_bytes: bytes, mime_type: str = "audio/wav", st
         
     recognizer = sr.Recognizer()
     text = ""
+    tmp_in_name = None
+    tmp_wav_name = None
+    
+    # Detect container format using magic bytes
+    extension = ".webm" # Default fallback
+    if audio_bytes and len(audio_bytes) >= 12:
+        magic_4 = audio_bytes[:4]
+        if magic_4 == b"\x1a\x45\xdf\xa3":
+            extension = ".webm"
+        elif magic_4 == b"OggS":
+            extension = ".ogg"
+        elif magic_4 == b"RIFF" and audio_bytes[8:12] == b"WAVE":
+            extension = ".wav"
+        elif magic_4 == b"ID3" or (magic_4[0] == 0xff and (magic_4[1] & 0xe0) == 0xe0):
+            extension = ".mp3"
+        elif audio_bytes[4:8] == b"ftyp" or b"ftyp" in audio_bytes[:20]:
+            extension = ".m4a"
+    elif mime_type:
+        mime_lower = mime_type.lower()
+        if "audio/mp4" in mime_lower or "audio/m4a" in mime_lower or "video/mp4" in mime_lower:
+            extension = ".m4a"
+        elif "audio/ogg" in mime_lower or "audio/opus" in mime_lower or "ogg" in mime_lower:
+            extension = ".ogg"
+        elif "audio/wav" in mime_lower or "audio/x-wav" in mime_lower or "wav" in mime_lower:
+            extension = ".wav"
+        elif "audio/mpeg" in mime_lower or "audio/mp3" in mime_lower or "mp3" in mime_lower:
+            extension = ".mp3"
+
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp_in:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=extension) as tmp_in:
             tmp_in.write(audio_bytes)
             tmp_in_name = tmp_in.name
             
@@ -126,32 +158,52 @@ def generate_audio_response(audio_bytes: bytes, mime_type: str = "audio/wav", st
         if not os.path.exists(ffmpeg_bin):
             ffmpeg_bin = "ffmpeg" # Fallback a PATH normal si no está en el venv
 
-        subprocess.run([ffmpeg_bin, "-y", "-i", tmp_in_name, "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", tmp_wav_name], 
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Run ffmpeg and capture output for debugging
+        result_ffmpeg = subprocess.run(
+            [ffmpeg_bin, "-y", "-i", tmp_in_name, "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", tmp_wav_name], 
+            capture_output=True,
+            text=True
+        )
         
-        if os.path.exists(tmp_wav_name):
-            with sr.AudioFile(tmp_wav_name) as source:
-                audio_data = recognizer.record(source)
-                try:
-                    text = recognizer.recognize_google(audio_data, language="es-ES")
-                    logger.info(f"Transcripción exitosa: {text}")
-                except sr.UnknownValueError:
-                    text = "No pude entender el audio."
-                except sr.RequestError as e:
-                    text = f"Error en el servicio de reconocimiento: {e}"
+        if result_ffmpeg.returncode != 0:
+            logger.error(f"FFmpeg failed with code {result_ffmpeg.returncode}. Stderr: {result_ffmpeg.stderr}")
+            text = "Error al convertir el audio a WAV."
+        elif os.path.exists(tmp_wav_name) and os.path.getsize(tmp_wav_name) > 0:
+            try:
+                with sr.AudioFile(tmp_wav_name) as source:
+                    audio_data = recognizer.record(source)
+                    try:
+                        text = recognizer.recognize_google(audio_data, language="es-ES")
+                        logger.info(f"Transcripción exitosa: {text}")
+                    except sr.UnknownValueError:
+                        text = "No pude entender el audio."
+                    except sr.RequestError as e:
+                        text = f"Error en el servicio de reconocimiento: {e}"
+            except Exception as sr_err:
+                logger.error(f"Error reading WAV or running speech recognition: {sr_err}")
+                text = f"Error al procesar el archivo de audio: {sr_err}"
         else:
             text = "Error al convertir el audio a WAV."
-            
-        if os.path.exists(tmp_in_name):
-            os.remove(tmp_in_name)
-        if os.path.exists(tmp_wav_name):
-            os.remove(tmp_wav_name)
             
     except Exception as e:
         logger.error(f"Error procesando audio: {e}")
         text = f"Ocurrió un error al procesar el audio: {e}"
+    finally:
+        # Guarantee cleanup of temporary files
+        if tmp_in_name and os.path.exists(tmp_in_name):
+            try:
+                os.remove(tmp_in_name)
+            except Exception as err:
+                logger.error(f"Failed to remove temp input file: {err}")
+        if tmp_wav_name and os.path.exists(tmp_wav_name):
+            try:
+                os.remove(tmp_wav_name)
+            except Exception as err:
+                logger.error(f"Failed to remove temp WAV file: {err}")
 
     if not text.strip() or text.startswith("Error") or text.startswith("No pude"):
-        return {"response": text, "execution_log": [], "provider": "agy"}
+        from src.services.db_service import get_tool_failure_status
+        active_engine = get_tool_failure_status("active_engine")["disabled_until"] or "agy"
+        return {"response": text, "execution_log": [], "provider": active_engine}
         
     return generate_response(text, status_callback)
