@@ -20,7 +20,7 @@ class AgyBrain:
         # Según las instrucciones: subprocess.run(["agy", "--print", prompt], capture_output=True, text=True)
         try:
             result = subprocess.run(
-                ["agy", "--model", "Gemini 3.1 Pro (Low)", "--print", prompt],
+                ["agy", "--model", "Gemini 3.1 Flash", "--print", prompt],
                 capture_output=True, 
                 text=True, 
                 timeout=300,

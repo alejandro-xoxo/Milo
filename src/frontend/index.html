@@ -4,217 +4,301 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MILO - Interfaz de Asistencia</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;600;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #01020a;
+            --bg-color: #03030a;
             --text-color: #f0f4f8;
-            --panel-bg: rgba(3, 5, 12, 0.75);
-            --border-color: rgba(37, 99, 235, 0.20);
-            
-            /* Avatar States */
-            --idle-color: #06b6d4;      /* Cian */
-            --idle-glow: rgba(6, 182, 212, 0.4);
-            
-            --process-color: #a855f7;   /* Púrpura */
-            --process-glow: rgba(168, 85, 247, 0.4);
-            
-            --speak-color: #3b82f6;     /* Azul */
-            --speak-glow: rgba(59, 130, 246, 0.4);
+            --panel-bg: rgba(5, 7, 15, 0.6);
+            --border-color: rgba(255, 255, 255, 0.08);
+            /* Avatar States - Ultra Realistic & Melancholic */
+            --idle-color: #4a6fa5;      /* Azul triste y profundo */
+            --process-color: #8b5fbf;   /* Púrpura melancólico */
+            --speak-color: #6fc3df;     /* Azul etéreo */
+            --error-color: #ff3366;     /* Rojo neón desgarrador */
 
-            --error-color: #ef4444;     /* Rojo */
-            --error-glow: rgba(239, 68, 68, 0.4);
 
-            --message-user-bg: rgba(37, 99, 235, 0.15);
-            --message-milo-bg: rgba(124, 58, 237, 0.15);
+            --message-user-bg: rgba(255, 255, 255, 0.05);
+            --message-milo-bg: rgba(255, 255, 255, 0.08);
         }
 
         body, html {
             margin: 0; padding: 0; height: 100%;
             background-color: var(--bg-color);
-            font-family: 'Outfit', sans-serif;
+            font-family: 'Inter', sans-serif;
             color: var(--text-color);
             display: flex; justify-content: center; align-items: center;
             overflow: hidden;
-            background-image:
-              linear-gradient(rgba(59, 130, 246, 0.04) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(59, 130, 246, 0.04) 1px, transparent 1px);
-            background-size: 60px 60px;
-            cursor: none;
+            cursor: none; /* Custom cursor */
         }
 
-        #bg-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+        /* Subtle grid background */
+        .grid-bg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-image:
+              linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 80px 80px;
+            z-index: 0; pointer-events: none;
+            mask-image: radial-gradient(circle at center, black 20%, transparent 80%);
+            -webkit-mask-image: radial-gradient(circle at center, black 20%, transparent 80%);
+        }
+
+        #bg-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
 
         #mouse-glow {
-            position: absolute; width: 800px; height: 800px;
-            background: radial-gradient(circle closest-side, rgba(124, 58, 237, 0.15), transparent);
+            position: absolute; width: 600px; height: 600px;
+            background: radial-gradient(circle closest-side, rgba(255, 255, 255, 0.05), transparent);
             transform: translate(-50%, -50%); border-radius: 50%;
-            pointer-events: none; z-index: 0; transition: opacity 0.3s;
+            pointer-events: none; z-index: 1; transition: opacity 0.3s;
         }
         
         .cursor-dot {
-            position: fixed; width: 6px; height: 6px;
+            position: fixed; width: 8px; height: 8px;
             background-color: var(--idle-color); border-radius: 50%;
             pointer-events: none; z-index: 9999;
-            transform: translate(-50%, -50%); box-shadow: 0 0 10px var(--idle-color);
+            transform: translate(-50%, -50%); box-shadow: 0 0 15px var(--idle-color);
+            transition: width 0.2s, height 0.2s, background-color 0.5s;
+        }
+
+        .cursor-dot.active {
+            width: 20px; height: 20px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border: 2px solid var(--idle-color);
         }
 
         .container {
-            width: 90%; max-width: 1200px; height: 90%;
-            display: flex; flex-direction: column; gap: 20px; z-index: 1;
+            width: 90%; max-width: 1400px; height: 90%;
+            display: flex; flex-direction: column; gap: 30px; z-index: 5;
             position: relative;
         }
 
         header {
-            text-align: center; text-transform: uppercase; letter-spacing: 4px;
-            font-weight: 800; font-size: 2rem; color: #fff;
-            text-shadow: 0 0 15px var(--idle-color); margin-bottom: 20px;
+            text-align: center; font-family: 'Outfit', sans-serif;
+            text-transform: uppercase; letter-spacing: 6px;
+            font-weight: 800; font-size: 2.5rem; color: #fff;
+            background: linear-gradient(90deg, var(--idle-color), var(--process-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.2));
         }
 
         .main-content {
-            display: flex; flex: 1; gap: 40px; justify-content: center; min-height: 0; position: relative;
+            display: flex; flex: 1; gap: 50px; justify-content: center; min-height: 0; position: relative;
         }
 
-        /* Avatar Container */        .avatar-container {
-            position: relative; width: 250px; height: 250px;
+        .avatar-container {
+            position: relative; width: 350px; height: 350px;
             display: flex; justify-content: center; align-items: center;
-            margin-bottom: 2rem;
-            /* We will keep the CSS circle but make it invisible, the 3D scene handles the visuals now */
-        }
-        
-        /* Ocultar el círculo 2D anterior ya que ahora usaremos el 3D central */
-        .circle, .circle-inner { display: none; }
-
-        @keyframes error-shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-10px); }
-            50% { transform: translateX(10px); }
-            75% { transform: translateX(-10px); }
+            flex-shrink: 0; align-self: center; flex-direction: column;
+            /* El canvas 3D ocupa la pantalla, pero este contenedor sitúa lógicamente los subtítulos */
         }
 
         /* Subtitles */
         .subtitles {
-            position: absolute; bottom: -60px; left: 50%; transform: translateX(-50%);
-            width: 120%; text-align: center;
-            font-size: 1.2rem; font-weight: 300; letter-spacing: 1px;
-            color: var(--text-color);
-            text-shadow: 0 0 10px rgba(255,255,255,0.5);
+            position: absolute; bottom: -80px; left: 50%; transform: translateX(-50%);
+            width: 150%; text-align: center;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem; font-weight: 300; letter-spacing: 1px;
+            color: rgba(255,255,255,0.9);
+            text-shadow: 0 4px 15px rgba(0,0,0,0.8), 0 0 20px var(--idle-color);
             min-height: 2em; pointer-events: none;
+            transition: text-shadow 0.5s;
         }
 
         /* Side Panel */
         .side-panel {
-            position: absolute; right: -320px; top: 0; bottom: 0; width: 300px;
-            background: rgba(3, 5, 12, 0.85); border-left: 1px solid var(--border-color);
-            backdrop-filter: blur(12px); transition: right 0.3s ease;
+            position: absolute; right: -360px; top: 0; bottom: 0; width: 340px;
+            background: var(--panel-bg); border-left: 1px solid var(--border-color);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
             display: flex; flex-direction: column; z-index: 10;
-            border-radius: 20px 0 0 20px; box-shadow: -5px 0 20px rgba(0,0,0,0.5);
+            border-radius: 24px 0 0 24px; box-shadow: -10px 0 30px rgba(0,0,0,0.5);
         }
 
-        .side-panel.open { right: -40px; } /* Adjust depending on layout */
+        .side-panel.open { right: -40px; } 
 
         .panel-toggle {
-            position: absolute; left: -40px; top: 50%; transform: translateY(-50%);
-            width: 40px; height: 60px; background: rgba(3, 5, 12, 0.85);
+            position: absolute; left: -45px; top: 50%; transform: translateY(-50%);
+            width: 45px; height: 80px; background: var(--panel-bg);
             border: 1px solid var(--border-color); border-right: none;
-            border-radius: 10px 0 0 10px; cursor: pointer; color: white;
+            border-radius: 16px 0 0 16px; cursor: pointer; color: white;
             display: flex; justify-content: center; align-items: center;
-            backdrop-filter: blur(12px); font-size: 1.2rem;
+            backdrop-filter: blur(20px); font-size: 1.2rem;
+            transition: background 0.3s, color 0.3s;
+        }
+        .panel-toggle:hover { background: rgba(255,255,255,0.1); }
+
+        .side-panel-content { padding: 30px; overflow-y: auto; flex: 1; scrollbar-width: none; }
+        .side-panel-content::-webkit-scrollbar { display: none; }
+        
+        .side-panel-content h3 { 
+            margin-top: 0; font-family: 'Outfit', sans-serif; font-size: 1.2rem; 
+            font-weight: 600; color: #fff; letter-spacing: 1px;
+            border-bottom: 1px solid var(--border-color); padding-bottom: 15px; 
+        }
+        
+        .task-list { list-style: none; padding: 0; margin: 0; font-size: 0.95rem; color: #d1d5db; }
+        .task-list li { 
+            margin-bottom: 15px; padding: 12px 16px; 
+            background: rgba(255,255,255,0.03); border-radius: 12px; 
+            border-left: 4px solid var(--process-color); 
+            animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); 
+            line-height: 1.4; font-weight: 300;
+        }
+        .task-list li.error { border-left-color: var(--error-color); color: var(--error-color); background: rgba(239, 68, 68, 0.05); }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
         }
 
-        .side-panel-content { padding: 20px; overflow-y: auto; flex: 1; }
-        .side-panel-content h3 { margin-top: 0; font-size: 1.1rem; color: var(--idle-color); border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
-        .task-list { list-style: none; padding: 0; margin: 0; font-size: 0.9rem; color: #ccc; }
-        .task-list li { margin-bottom: 10px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 8px; border-left: 3px solid var(--process-color); animation: fadeIn 0.3s ease; }
-        .task-list li.error { border-left-color: var(--error-color); color: var(--error-color); }
-
-        /* Chat Panel */
-        .chat-panel {
-            flex: 1; height: 100%; background: var(--panel-bg);
-            border: 1px solid var(--border-color); border-radius: 20px;
-            backdrop-filter: blur(12px); display: flex; flex-direction: column;
-            overflow: hidden; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
-            transition: margin-right 0.3s ease;
+        /* Chat Section */
+        .chat-section {
+            flex: 1; display: flex; flex-direction: column;
+            background: var(--panel-bg); border-radius: 24px;
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            overflow: hidden; max-width: 600px;
         }
 
-        .chat-history { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
-        .message { max-width: 80%; padding: 14px 20px; border-radius: 16px; line-height: 1.6; font-size: 1.05rem; animation: fadeIn 0.3s ease; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); }
-        .message.user { align-self: flex-end; background: var(--message-user-bg); border: 1px solid rgba(37, 99, 235, 0.3); border-bottom-right-radius: 4px; }
-        .message.milo { align-self: flex-start; background: var(--message-milo-bg); border: 1px solid rgba(124, 58, 237, 0.3); border-bottom-left-radius: 4px; }
+        .chat-history {
+            flex: 1; padding: 25px; overflow-y: auto;
+            display: flex; flex-direction: column; gap: 15px;
+            scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.2) transparent;
+        }
+        .chat-history::-webkit-scrollbar { width: 6px; }
+        .chat-history::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+
+        .message {
+            max-width: 85%; padding: 14px 18px; border-radius: 18px;
+            font-size: 1rem; line-height: 1.5; font-weight: 300;
+            animation: fadeIn 0.3s ease; letter-spacing: 0.3px;
+        }
+        .message.user {
+            align-self: flex-end; background: var(--message-user-bg);
+            border-bottom-right-radius: 4px; border: 1px solid rgba(255,255,255,0.1);
+        }
+        .message.milo {
+            align-self: flex-start; background: var(--message-milo-bg);
+            border-bottom-left-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.1);
+        }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* Input Area */
-        .input-area { display: flex; padding: 20px; gap: 15px; background: rgba(0, 0, 0, 0.4); border-top: 1px solid var(--border-color); }
-        input[type="text"] { flex: 1; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; color: var(--text-color); font-family: 'Outfit', sans-serif; font-size: 1.05rem; outline: none; transition: all 0.3s; }
-        input[type="text"]:focus { border-color: var(--idle-color); background: rgba(255, 255, 255, 0.08); box-shadow: 0 0 10px var(--idle-glow); }
-        
-        .btn { background: rgba(124, 58, 237, 0.15); border: 1px solid var(--idle-color); color: #fff; padding: 0 25px; border-radius: 12px; cursor: pointer; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; transition: all 0.3s; display: flex; align-items: center; justify-content: center; }
-        .btn:hover { background: var(--idle-color); box-shadow: 0 0 20px var(--idle-color); }
-        .btn.mic { border-radius: 50%; width: 55px; height: 55px; padding: 0; font-size: 1.4rem; }
-        .btn.mic.recording { background: var(--error-color); border-color: var(--error-color); animation: pulse-idle 1s infinite; box-shadow: 0 0 20px var(--error-glow); }
+        .input-area {
+            display: flex; padding: 20px; gap: 15px;
+            background: rgba(0,0,0,0.2); border-top: 1px solid var(--border-color);
+        }
 
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
-        ::-webkit-scrollbar-thumb { background: rgba(124, 58, 237, 0.4); border-radius: 4px; }
+        input[type="text"] {
+            flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color);
+            color: white; padding: 0 20px; border-radius: 12px; font-size: 1rem;
+            outline: none; transition: all 0.3s; font-family: 'Inter', sans-serif;
+            font-weight: 300;
+        }
+        input[type="text"]:focus { border-color: var(--idle-color); background: rgba(255,255,255,0.08); box-shadow: 0 0 15px rgba(255, 255, 255, 0.1); }
+
+        .btn {
+            background: rgba(255,255,255,0.05); color: white; border: 1px solid var(--border-color);
+            padding: 0 24px; border-radius: 12px; cursor: pointer; font-size: 1rem;
+            transition: all 0.3s; display: flex; justify-content: center; align-items: center;
+            font-family: 'Outfit', sans-serif; font-weight: 600; letter-spacing: 1px;
+        }
+        .btn:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); }
+        .btn:active { transform: translateY(0); }
+
+        .btn.mic { padding: 0; width: 50px; height: 50px; border-radius: 50%; font-size: 1.2rem; }
+        
+        .btn.mic.recording {
+            background: var(--error-color);
+            border-color: var(--error-color);
+            box-shadow: 0 0 20px var(--error-glow);
+            animation: pulse-recording 1.5s infinite;
+        }
+        
+        .ptt-hint {
+            position: absolute; top: -30px; left: 50%; transform: translateX(-50%);
+            font-size: 0.8rem; color: #888; font-weight: 300; white-space: nowrap;
+            opacity: 0.7;
+        }
+
+        @keyframes pulse-recording {
+            0% { box-shadow: 0 0 10px var(--error-glow); }
+            50% { box-shadow: 0 0 30px var(--error-glow); }
+            100% { box-shadow: 0 0 10px var(--error-glow); }
+        }
+        
+        /* PTT Overlay Hint */
+        .ptt-overlay {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px);
+            font-size: 0.9rem; color: #aaa; z-index: 100; opacity: 0; pointer-events: none;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        .ptt-overlay.visible { opacity: 1; transform: translateX(-50%) translateY(-10px); }
+        .ptt-overlay span { color: #fff; font-weight: 600; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 6px; margin: 0 5px; }
+
     </style>
 </head>
 <body>
-    <canvas id="bg-canvas"></canvas>
+    <div class="grid-bg"></div>
     <div id="mouse-glow"></div>
     <div class="cursor-dot" id="cursor-dot"></div>
+    <canvas id="bg-canvas"></canvas>
+    
+    <div class="ptt-overlay" id="ptt-overlay">Mantén presionado <span>Espacio</span> para hablar</div>
 
     <div class="container">
-        <header>MILO CORTEX</header>
-        
+        <header>M.I.L.O.</header>
         <div class="main-content">
-            <div class="avatar-container">
-                <div class="circle idle" id="milo-avatar"></div>
-                <div class="circle-inner"></div>
+            <div class="avatar-container" id="milo-avatar">
                 <div class="subtitles" id="subtitles"></div>
             </div>
 
-            <div class="chat-panel">
+            <div class="chat-section">
                 <div class="chat-history" id="chat-history">
-                    <div class="message milo">Sistemas en línea. Conexión establecida. ¿En qué te puedo ayudar?</div>
+                    <div class="message milo">Sistemas en línea. Mantén presionada la barra espaciadora para comunicarte.</div>
                 </div>
-                <div class="input-area">
-                    <button class="btn mic" id="mic-btn">🎙️</button>
-                    <input type="text" id="text-input" placeholder="Ingresa tu comando o háblame..." autocomplete="off">
-                    <button class="btn" id="send-btn">Enviar</button>
+                <div style="position: relative;">
+                    <div class="input-area">
+                        <button class="btn mic" id="mic-btn">🎙️</button>
+                        <input type="text" id="text-input" placeholder="Ingresa tu comando o usa Espacio..." autocomplete="off">
+                        <button class="btn" id="send-btn">Enviar</button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Side Panel -->
             <div class="side-panel" id="side-panel">
                 <div class="panel-toggle" id="panel-toggle">❮</div>
                 <div class="side-panel-content">
-                    <h3>Background Tasks</h3>
-                    <ul class="task-list" id="task-list">
-                        <!-- Tareas aparecerán aquí -->
-                    </ul>
+                    <h3>Procesos Activos</h3>
+                    <ul class="task-list" id="task-list"></ul>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- UI Logic -->
     <script>
         const ws = new WebSocket(`ws://${window.location.host}/ws/voice`);
         const chatHistory = document.getElementById('chat-history');
         const textInput = document.getElementById('text-input');
         const sendBtn = document.getElementById('send-btn');
         const micBtn = document.getElementById('mic-btn');
-        const avatar = document.getElementById('milo-avatar');
         const subtitles = document.getElementById('subtitles');
         const sidePanel = document.getElementById('side-panel');
         const panelToggle = document.getElementById('panel-toggle');
         const taskList = document.getElementById('task-list');
+        const pttOverlay = document.getElementById('ptt-overlay');
         
         let isRecording = false;
         let mediaRecorder;
         let audioChunks = [];
 
-        // Audio Context for visualizer
         let audioCtx;
         let analyser;
 
@@ -224,37 +308,40 @@
         });
 
         function setAvatarState(state) {
-            avatar.className = `circle ${state}`; // Keep for compatibility
+            // Update UI elements based on state if needed
+            if(state === 'error') {
+                subtitles.style.textShadow = '0 4px 15px rgba(0,0,0,0.8), 0 0 20px var(--error-color)';
+            } else if (state === 'speaking') {
+                subtitles.style.textShadow = '0 4px 15px rgba(0,0,0,0.8), 0 0 20px var(--speak-color)';
+            } else {
+                subtitles.style.textShadow = '0 4px 15px rgba(0,0,0,0.8), 0 0 20px var(--idle-color)';
+            }
+            // Trigger 3D update
             if(window.update3DAvatar) window.update3DAvatar(state, null, 0);
         }
 
         function addBackgroundTask(text, isError = false) {
+            const time = new Date().toLocaleTimeString('es-ES', {hour12: false});
             const li = document.createElement('li');
-            li.textContent = text;
+            li.innerHTML = `<span style="opacity:0.5;font-size:0.8em;margin-right:8px;">[${time}]</span> ${text}`;
             if(isError) li.className = 'error';
             taskList.appendChild(li);
-            // Mostrar panel automáticamente si hay nueva tarea
             if(!sidePanel.classList.contains('open')) {
                 sidePanel.classList.add('open');
                 panelToggle.textContent = '❯';
             }
-            // Auto scroll to bottom
             const panelContent = document.querySelector('.side-panel-content');
             panelContent.scrollTop = panelContent.scrollHeight;
         }
 
-        // Subtitle typing effect
         let subtitleInterval;
         function showSubtitles(text, durationMs) {
             clearInterval(subtitleInterval);
             subtitles.textContent = '';
             if(!text) return;
-
             const chars = text.split('');
             let idx = 0;
-            // Si no tenemos duración, asumimos velocidad de lectura media (ej. 50ms por char)
             const delay = durationMs ? (durationMs / chars.length) : 50;
-
             subtitleInterval = setInterval(() => {
                 if (idx < chars.length) {
                     subtitles.textContent += chars[idx];
@@ -265,26 +352,24 @@
             }, delay);
         }
 
-        ws.onopen = () => {
-            console.log("WebSocket connected.");
-            setAvatarState('idle');
-        };
+        ws.onopen = () => { console.log("WebSocket connected."); setAvatarState('idle'); };
 
         let lastTextResponse = '';
 
         ws.onmessage = async (event) => {
             if (typeof event.data === "string") {
                 const data = JSON.parse(event.data);
-                
                 if (data.type === "text") {
                     addMessage(data.text, 'milo');
-                    lastTextResponse = data.text; // Store for subtitle
-                } 
-                else if (data.type === "status") {
+                    lastTextResponse = data.text;
+                } else if (data.type === "status") {
                     addBackgroundTask(data.text);
-                }
-                else if (data.type === "error" || data.status === 429) {
-                    // Check for rate limit or quota
+                } else if (data.type === "quota_error") {
+                    setAvatarState('error');
+                    addBackgroundTask("Límite alcanzado. Tarea encolada (429).", true);
+                    addMessage(data.text, 'milo');
+                    lastTextResponse = data.text;
+                } else if (data.type === "error" || data.status === 429) {
                     if(data.status === 429 || (data.error && data.error.includes("429"))) {
                         setAvatarState('error');
                         addBackgroundTask("Tarea encolada", true);
@@ -293,10 +378,9 @@
                         setAvatarState('error');
                         addMessage(`Error: ${data.error}`, 'milo');
                     }
-                    setTimeout(() => { if(avatar.classList.contains('error')) setAvatarState('idle'); }, 3000);
+                    setTimeout(() => setAvatarState('idle'), 3000);
                 }
             } else if (event.data instanceof Blob) {
-                // Audio response
                 playAudioResponse(event.data);
             }
         };
@@ -308,22 +392,17 @@
                 analyser.fftSize = 256;
             }
             if(audioCtx.state === 'suspended') await audioCtx.resume();
-
             const audioUrl = URL.createObjectURL(blob);
             const audio = new Audio(audioUrl);
-            
-            // Connect to visualizer
             const source = audioCtx.createMediaElementSource(audio);
             source.connect(analyser);
             analyser.connect(audioCtx.destination);
-
             const bufferLength = analyser.frequencyBinCount;
             const dataArray = new Uint8Array(bufferLength);
-
+            
             setAvatarState('speaking');
             audio.play();
 
-            // Try to approximate duration for subtitles. If not loaded, use a default delay.
             audio.addEventListener('loadedmetadata', () => {
                 const duration = audio.duration * 1000;
                 if(lastTextResponse) showSubtitles(lastTextResponse, duration);
@@ -334,20 +413,16 @@
                 if(audio.paused || audio.ended) return;
                 requestAnimationFrame(renderFrame);
                 analyser.getByteFrequencyData(dataArray);
-                
                 let sum = 0;
                 for(let i=0; i<bufferLength; i++) sum += dataArray[i];
                 let avg = sum / bufferLength;
-                
-                if(window.update3DAvatar && avatar.classList.contains('speaking')) {
-                    window.update3DAvatar('speaking', dataArray, avg);
-                }
+                if(window.update3DAvatar) window.update3DAvatar('speaking', dataArray, avg);
             }
             renderFrame();
 
             audio.onended = () => {
                 setAvatarState('idle');
-                setTimeout(() => subtitles.textContent = '', 2000); // Clear subtitles after 2s
+                setTimeout(() => subtitles.textContent = '', 2000);
             };
         }
 
@@ -362,216 +437,384 @@
         function sendMessage() {
             const text = textInput.value.trim();
             if (text && ws.readyState === WebSocket.OPEN) {
+                taskList.innerHTML = ''; // Limpiar tareas anteriores
                 ws.send(JSON.stringify({ text }));
                 addMessage(text, 'user');
                 textInput.value = '';
-                setAvatarState('processing'); // show thinking state
-                subtitles.textContent = ''; // clear any existing subtitles
+                setAvatarState('processing');
+                subtitles.textContent = '';
             }
         }
 
         sendBtn.addEventListener('click', sendMessage);
-        textInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
-        });
+        textInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
 
-        // Audio Recording logic
         async function setupAudio() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-                
-                mediaRecorder.ondataavailable = e => {
-                    if (e.data.size > 0) audioChunks.push(e.data);
-                };
-
+                mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
                 mediaRecorder.onstop = () => {
                     const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
                     audioChunks = [];
                     if (ws.readyState === WebSocket.OPEN) {
+                        taskList.innerHTML = ''; // Limpiar tareas anteriores
                         ws.send(audioBlob);
                         addMessage("[Mensaje de voz enviado]", 'user');
                         setAvatarState('processing');
                     }
                 };
             } catch (err) {
-                console.error("Microphone access denied or error:", err);
+                console.error("Mic error:", err);
                 alert("No se pudo acceder al micrófono.");
             }
         }
 
-        micBtn.addEventListener('click', async () => {
+        async function startRecording() {
             if (!mediaRecorder) await setupAudio();
-            if (!mediaRecorder) return;
+            if (!mediaRecorder || isRecording) return;
+            mediaRecorder.start();
+            isRecording = true;
+            micBtn.classList.add('recording');
+            setAvatarState('idle');
+        }
 
-            if (!isRecording) {
-                mediaRecorder.start();
-                isRecording = true;
-                micBtn.classList.add('recording');
-                setAvatarState('idle');
-            } else {
-                mediaRecorder.stop();
-                isRecording = false;
-                micBtn.classList.remove('recording');
+        function stopRecording() {
+            if (!mediaRecorder || !isRecording) return;
+            mediaRecorder.stop();
+            isRecording = false;
+            micBtn.classList.remove('recording');
+        }
+
+        micBtn.addEventListener('mousedown', startRecording);
+        micBtn.addEventListener('mouseup', stopRecording);
+        micBtn.addEventListener('mouseleave', stopRecording);
+
+        let spacePressed = false;
+        document.addEventListener('keydown', (e) => {
+            if(document.activeElement === textInput) return;
+            if(e.code === 'Space' && !spacePressed) {
+                spacePressed = true;
+                e.preventDefault();
+                startRecording();
+                pttOverlay.classList.remove('visible');
             }
         });
 
-        // Mouse Glow and Custom Cursor
+        document.addEventListener('keyup', (e) => {
+            if(document.activeElement === textInput) return;
+            if(e.code === 'Space') {
+                spacePressed = false;
+                e.preventDefault();
+                stopRecording();
+            }
+        });
+
+        // Show PTT overlay briefly on load
+        setTimeout(() => pttOverlay.classList.add('visible'), 1000);
+        setTimeout(() => pttOverlay.classList.remove('visible'), 5000);
+
+        // Custom Cursor
         const glow = document.getElementById('mouse-glow');
         const dot = document.getElementById('cursor-dot');
-        
         document.addEventListener('mousemove', (e) => {
             glow.style.left = e.clientX + 'px';
             glow.style.top  = e.clientY + 'px';
             dot.style.left = e.clientX + 'px';
             dot.style.top = e.clientY + 'px';
         });
+        document.addEventListener('mousedown', () => dot.classList.add('active'));
+        document.addEventListener('mouseup', () => dot.classList.remove('active'));
+
     </script>
 
-    <!-- Three.js Background Animation -->
+    <!-- Import Map for Three.js -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+        }
+      }
+    </script>
+
+    <!-- Post-processed Ultra-Realistic Three.js Scene -->
     <script type="module">
-        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js';
+        import * as THREE from 'three';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
         const canvas = document.getElementById('bg-canvas');
-        if (canvas) {
-            const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-            renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.setClearColor(0x000000, 0);
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio for performance
+        renderer.setClearColor(0x000000, 0);
 
-            const scene = new THREE.Scene();
-            const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.z = 28;
+        const scene = new THREE.Scene();
+        // Add subtle fog for depth
+        scene.fog = new THREE.FogExp2(0x020205, 0.015);
 
-            const PARTICLE_COUNT = 1500;
-            const positions = new Float32Array(PARTICLE_COUNT * 3);
-            const colors = new Float32Array(PARTICLE_COUNT * 3);
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 35; // slightly further back for larger objects
 
-            const colorA = new THREE.Color('#3b82f6'); // blue
-            const colorB = new THREE.Color('#7c3aed'); // purple
-            const colorC = new THREE.Color('#06b6d4'); // cyan
+        // --- Post-Processing Bloom ---
+        const renderScene = new RenderPass(scene, camera);
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 2.5, 0.7, 0.1);
+        const composer = new EffectComposer(renderer);
+        composer.addPass(renderScene);
+        composer.addPass(bloomPass);
 
-            for (let i = 0; i < PARTICLE_COUNT; i++) {
-                const i3 = i * 3;
-                positions[i3] = (Math.random() - 0.5) * 80;
-                positions[i3 + 1] = (Math.random() - 0.5) * 60;
-                positions[i3 + 2] = (Math.random() - 0.5) * 40;
+        // --- Background Dust ---
+        const PARTICLE_COUNT = 2500;
+        const positions = new Float32Array(PARTICLE_COUNT * 3);
+        const colors = new Float32Array(PARTICLE_COUNT * 3);
+        const colorA = new THREE.Color('#2a4b7c'); // Melancholic blue
+        const colorB = new THREE.Color('#4d3b6e'); // Deep purple
+        const colorC = new THREE.Color('#1a2639'); // Dark slate
 
-                const mix = Math.random();
-                const c = mix < 0.33 ? colorA : mix < 0.66 ? colorB : colorC;
-                colors[i3] = c.r;
-                colors[i3 + 1] = c.g;
-                colors[i3 + 2] = c.b;
-            }
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            const i3 = i * 3;
+            positions[i3] = (Math.random() - 0.5) * 180;
+            positions[i3 + 1] = (Math.random() - 0.5) * 140;
+            positions[i3 + 2] = (Math.random() - 0.5) * 80 - 20; 
 
-            const geo = new THREE.BufferGeometry();
-            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-            const mat = new THREE.PointsMaterial({
-                size: 0.15,
-                vertexColors: true,
-                transparent: true,
-                opacity: 0.8,
-            });
-
-            const points = new THREE.Points(geo, mat);
-            scene.add(points);
-
-            // --- 3D Avatar Core ---
-            const avatarGeo = new THREE.IcosahedronGeometry(1.5, 3);
-            const avatarMat = new THREE.MeshBasicMaterial({ 
-                color: 0x06b6d4, wireframe: true, transparent: true, opacity: 0.8 
-            });
-            const avatarMesh = new THREE.Mesh(avatarGeo, avatarMat);
-            // Move closer to camera
-            avatarMesh.position.z = 24;
-            scene.add(avatarMesh);
-
-            let currentAvatarState = 'idle';
-            let audioScale = 1.0;
-
-            window.update3DAvatar = function(state, dataArray, avgVol) {
-                currentAvatarState = state;
-                if (state === 'speaking') {
-                    audioScale = 1 + (avgVol / 256) * 0.8;
-                } else if (state === 'idle') {
-                    audioScale = 1;
-                    avatarMat.color.setHex(0x06b6d4); // Cyan
-                } else if (state === 'processing') {
-                    audioScale = 1.2;
-                    avatarMat.color.setHex(0x7c3aed); // Purple
-                } else if (state === 'error') {
-                    audioScale = 1;
-                    avatarMat.color.setHex(0xef4444); // Red
-                }
-            };
-
-            let mouseX = 0;
-            let mouseY = 0;
-            let targetX = 0;
-            let targetY = 0;
-
-            document.addEventListener('mousemove', (e) => {
-                mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
-                mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
-            });
-
-            function resize() {
-                renderer.setSize(window.innerWidth, window.innerHeight);
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-            }
-            window.addEventListener('resize', resize);
-            resize();
-
-            const clock = new THREE.Clock();
-
-            function animate() {
-                requestAnimationFrame(animate);
-                const elapsed = clock.getElapsedTime();
-
-                targetX += (mouseX - targetX) * 0.04;
-                targetY += (mouseY - targetY) * 0.04;
-
-                // Background particles rotation
-                points.rotation.y = elapsed * 0.02 + targetX * 0.1;
-                points.rotation.x = targetY * 0.1;
-
-                // Avatar Animation
-                if (currentAvatarState === 'processing') {
-                    avatarMesh.rotation.y += 0.05;
-                    avatarMesh.rotation.x += 0.05;
-                } else {
-                    avatarMesh.rotation.y += 0.01;
-                    avatarMesh.rotation.x += 0.005;
-                }
-
-                if (currentAvatarState === 'speaking') {
-                    avatarMat.color.setHex(0x3b82f6); // Blue when speaking
-                    // Apply audio deformation (pulsing)
-                    const targetScale = audioScale;
-                    avatarMesh.scale.x += (targetScale - avatarMesh.scale.x) * 0.2;
-                    avatarMesh.scale.y += (targetScale - avatarMesh.scale.y) * 0.2;
-                    avatarMesh.scale.z += (targetScale - avatarMesh.scale.z) * 0.2;
-                } else {
-                    // Gentle pulse for idle
-                    const pulse = 1 + Math.sin(elapsed * 2) * 0.05;
-                    let targetScale = currentAvatarState === 'processing' ? 1.2 : pulse;
-                    avatarMesh.scale.x += (targetScale - avatarMesh.scale.x) * 0.1;
-                    avatarMesh.scale.y += (targetScale - avatarMesh.scale.y) * 0.1;
-                    avatarMesh.scale.z += (targetScale - avatarMesh.scale.z) * 0.1;
-                }
-                
-                if (currentAvatarState === 'error') {
-                    avatarMesh.position.x = (Math.random() - 0.5) * 0.2;
-                } else {
-                    avatarMesh.position.x += (0 - avatarMesh.position.x) * 0.1;
-                }
-
-                renderer.render(scene, camera);
-            }
-            animate();
+            const mix = Math.random();
+            const c = mix < 0.33 ? colorA : mix < 0.66 ? colorB : colorC;
+            colors[i3] = c.r; colors[i3 + 1] = c.g; colors[i3 + 2] = c.b;
         }
+
+        const geoParticles = new THREE.BufferGeometry();
+        geoParticles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geoParticles.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        const matParticles = new THREE.PointsMaterial({
+            size: 0.15, vertexColors: true, transparent: true, opacity: 0.8,
+            blending: THREE.AdditiveBlending
+        });
+
+        const points = new THREE.Points(geoParticles, matParticles);
+        scene.add(points);
+
+        // --- Ultra Realistic 3D Wave Orb ---
+        const coreGroup = new THREE.Group();
+        coreGroup.position.x = -12; // Move further left
+        
+        // Inner core (shattered glass look)
+        const innerGeo = new THREE.IcosahedronGeometry(2.5, 2);
+        const innerMat = new THREE.MeshBasicMaterial({ 
+            color: 0x4a6fa5, wireframe: true, transparent: true, opacity: 0.7,
+            blending: THREE.AdditiveBlending
+        });
+        const innerMesh = new THREE.Mesh(innerGeo, innerMat);
+        
+        // Outer wave sphere (larger)
+        const outerGeo = new THREE.SphereGeometry(3.8, 128, 128);
+        const outerMat = new THREE.MeshBasicMaterial({ 
+            color: 0x224488, wireframe: true, transparent: true, opacity: 0.2,
+            blending: THREE.AdditiveBlending
+        });
+        const outerMesh = new THREE.Mesh(outerGeo, outerMat);
+
+        // Store original vertices for wave & hover deformation
+        const posAttrOuter = outerGeo.attributes.position;
+        const vertexDataOuter = [];
+        for(let i=0; i<posAttrOuter.count; i++) {
+            vertexDataOuter.push(new THREE.Vector3(posAttrOuter.getX(i), posAttrOuter.getY(i), posAttrOuter.getZ(i)));
+        }
+
+        const posAttrInner = innerGeo.attributes.position;
+        const vertexDataInner = [];
+        for(let i=0; i<posAttrInner.count; i++) {
+            vertexDataInner.push(new THREE.Vector3(posAttrInner.getX(i), posAttrInner.getY(i), posAttrInner.getZ(i)));
+        }
+
+        // Solid core (dark void)
+        const solidGeo = new THREE.SphereGeometry(1.8, 64, 64);
+        const solidMat = new THREE.MeshBasicMaterial({ color: 0x050510 });
+        const solidMesh = new THREE.Mesh(solidGeo, solidMat);
+
+        // Orbital rings for futuristic look
+        const rings = [];
+        for(let i=0; i<3; i++) {
+            const ringGeo = new THREE.TorusGeometry(5 + i*0.8, 0.02, 16, 100);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0x6fc3df, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.rotation.x = Math.random() * Math.PI;
+            ring.rotation.y = Math.random() * Math.PI;
+            coreGroup.add(ring);
+            rings.push({ mesh: ring, speedX: (Math.random()-0.5)*0.02, speedY: (Math.random()-0.5)*0.02 });
+        }
+
+        coreGroup.add(innerMesh);
+        coreGroup.add(outerMesh);
+        coreGroup.add(solidMesh);
+        scene.add(coreGroup);
+
+        // Raycaster for interactiveness
+        const raycaster = new THREE.Raycaster();
+        const mouseVec = new THREE.Vector2();
+        let isHovered = false;
+        let hoverFactor = 0;
+
+        let currentAvatarState = 'idle';
+        let audioScale = 1.0;
+
+        window.update3DAvatar = function(state, dataArray, avgVol) {
+            currentAvatarState = state;
+            if (state === 'speaking') {
+                audioScale = 1 + (avgVol / 256) * 0.8;
+                outerMat.color.setHex(0x6fc3df);
+                innerMat.color.setHex(0x6fc3df);
+                bloomPass.strength = 4.0;
+            } else if (state === 'idle') {
+                audioScale = 1;
+                outerMat.color.setHex(0x224488);
+                innerMat.color.setHex(0x4a6fa5);
+                bloomPass.strength = 2.0;
+            } else if (state === 'processing') {
+                audioScale = 1.15;
+                outerMat.color.setHex(0x8b5fbf);
+                innerMat.color.setHex(0x8b5fbf);
+                bloomPass.strength = 3.0;
+            } else if (state === 'error') {
+                audioScale = 1.0;
+                outerMat.color.setHex(0xff3366);
+                innerMat.color.setHex(0xff3366);
+                bloomPass.strength = 4.5;
+            }
+        };
+
+        let mouseX = 0; let mouseY = 0;
+        let targetX = 0; let targetY = 0;
+
+        document.addEventListener('mousemove', (e) => {
+            mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+            mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+            
+            mouseVec.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouseVec.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        function resize() {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            renderer.setSize(w, h);
+            composer.setSize(w, h);
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsed = clock.getElapsedTime();
+
+            targetX += (mouseX - targetX) * 0.04;
+            targetY += (mouseY - targetY) * 0.04;
+
+            // Interactiveness check
+            raycaster.setFromCamera(mouseVec, camera);
+            const intersects = raycaster.intersectObjects([outerMesh, innerMesh, solidMesh]);
+            isHovered = intersects.length > 0;
+            
+            // Smoothly approach 1 or 0
+            hoverFactor += ((isHovered ? 1 : 0) - hoverFactor) * 0.1;
+
+            // Background rotation
+            points.rotation.y = elapsed * 0.01 + targetX * 0.1;
+            points.rotation.x = targetY * 0.1;
+
+            // Rings animation
+            rings.forEach((r, idx) => {
+                r.mesh.rotation.x += r.speedX * (1 + hoverFactor * 5);
+                r.mesh.rotation.y += r.speedY * (1 + hoverFactor * 5);
+                r.mesh.scale.setScalar(1 + hoverFactor * 0.2);
+                r.mesh.material.opacity = 0.4 + hoverFactor * 0.4;
+                if(isHovered) r.mesh.material.color.setHex(0xffffff);
+                else r.mesh.material.color.setHex(0x6fc3df);
+            });
+
+            // Avatar Animation
+            if (currentAvatarState === 'processing') {
+                outerMesh.rotation.y += 0.02; outerMesh.rotation.x += 0.02;
+                innerMesh.rotation.y -= 0.03; innerMesh.rotation.x -= 0.03;
+            } else {
+                // Slower, sadder movements
+                outerMesh.rotation.y += 0.003; outerMesh.rotation.x += 0.001;
+                innerMesh.rotation.y -= 0.005; innerMesh.rotation.x -= 0.002;
+            }
+
+            // Wave & Hover Deformation
+            let waveIntensity = 0.1;
+            let waveSpeed = 0.5; // Slower, melancholy
+            let waveFrequency = 2.0;
+
+            if (currentAvatarState === 'processing') {
+                waveIntensity = 0.5; 
+                waveSpeed = 3.0;
+                waveFrequency = 4.0;
+            } else if (currentAvatarState === 'speaking') {
+                waveIntensity = 0.3 + (audioScale - 1) * 0.6;
+                waveSpeed = 1.5 + (audioScale - 1) * 4.0;
+                waveFrequency = 3.0;
+            }
+
+            // Apply hover breaking effect to inner mesh (breaks in half / splinters)
+            for(let i=0; i<posAttrInner.count; i++) {
+                let v = vertexDataInner[i];
+                let dir = v.clone().normalize();
+                
+                let chaoticNoise = Math.sin(dir.x * 20 + elapsed * 10) * Math.cos(dir.y * 20 + elapsed * 10);
+                let breakDisplacement = hoverFactor * (1.5 + chaoticNoise * 1.5);
+                
+                // Separate in halves along X axis
+                let halfSplit = Math.sign(dir.x) * hoverFactor * 2.5;
+
+                let finalDist = 2.5 + breakDisplacement;
+                posAttrInner.setXYZ(i, dir.x * finalDist + halfSplit, dir.y * finalDist, dir.z * finalDist);
+            }
+            posAttrInner.needsUpdate = true;
+
+            // Apply wave to outer mesh
+            for(let i=0; i<posAttrOuter.count; i++) {
+                let v = vertexDataOuter[i];
+                let dir = v.clone().normalize();
+                
+                let noise = Math.sin(dir.x * waveFrequency + elapsed * waveSpeed) 
+                          * Math.sin(dir.y * waveFrequency + elapsed * waveSpeed)
+                          * Math.cos(dir.z * waveFrequency + elapsed * waveSpeed);
+                
+                let hoverNoise = Math.random() * hoverFactor * 0.5;
+                
+                let displacement = 3.8 + noise * waveIntensity + hoverFactor * 1.0 + hoverNoise;
+                posAttrOuter.setXYZ(i, dir.x * displacement, dir.y * displacement, dir.z * displacement);
+            }
+            posAttrOuter.needsUpdate = true;
+
+            // Smooth scale transition
+            let targetScale;
+            if (currentAvatarState === 'speaking') {
+                targetScale = audioScale + hoverFactor * 0.2;
+            } else {
+                const pulse = 1 + Math.sin(elapsed * 1.5) * 0.04;
+                targetScale = (currentAvatarState === 'processing' ? 1.05 : pulse) + hoverFactor * 0.1;
+            }
+            coreGroup.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.05);
+            
+            if (currentAvatarState === 'error') {
+                coreGroup.position.x = -12 + (Math.random() - 0.5) * 0.5;
+                coreGroup.position.y = (Math.random() - 0.5) * 0.5;
+            } else {
+                coreGroup.position.x += (-12 + targetX * 1.5 - coreGroup.position.x) * 0.05;
+                coreGroup.position.y += (-targetY * 1.5 - coreGroup.position.y) * 0.05;
+            }
+
+            composer.render();
+        }
+        animate();
     </script>
 </body>
 </html>

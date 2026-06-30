@@ -189,7 +189,19 @@ async def check_skill_creation(task_type: str = "", metadata: dict = None):
 async def websocket_voice_endpoint(websocket: WebSocket):
     from starlette.concurrency import run_in_threadpool
     from src.services.gemini_service import generate_response, generate_audio_response
+    from src.services.response_formatter import humanize_response
+    import asyncio
+    
     await websocket.accept()
+    loop = asyncio.get_running_loop()
+    
+    def send_status(msg: str):
+        # We must use run_coroutine_threadsafe to send through websocket from a worker thread
+        asyncio.run_coroutine_threadsafe(
+            websocket.send_json({"type": "status", "text": msg}),
+            loop
+        )
+
     try:
         while True:
             message = await websocket.receive()
@@ -197,11 +209,11 @@ async def websocket_voice_endpoint(websocket: WebSocket):
             response_text = ""
             if "text" in message:
                 user_text = message["text"]
-                result = await run_in_threadpool(generate_response, user_text)
+                result = await run_in_threadpool(generate_response, user_text, send_status)
                 response_text = result["response"]
             elif "bytes" in message:
                 audio_bytes = message["bytes"]
-                result = await run_in_threadpool(generate_audio_response, audio_bytes, mime_type="audio/webm")
+                result = await run_in_threadpool(generate_audio_response, audio_bytes, "audio/webm", send_status)
                 response_text = result["response"]
             else:
                 continue
@@ -211,24 +223,30 @@ async def websocket_voice_endpoint(websocket: WebSocket):
                 if not response_text or not response_text.strip():
                     response_text = "Antigravity sin cuota por ahora, tu tarea quedó en cola."
                     await websocket.send_json({"type": "quota_error", "text": response_text})
-                    # Mandamos también el audio del error para que el usuario lo escuche
                     tts = gTTS(text=response_text, lang='es')
                     fp = io.BytesIO()
                     tts.write_to_fp(fp)
                     fp.seek(0)
-                    audio_response_bytes = fp.read()
-                    await websocket.send_bytes(audio_response_bytes)
+                    await websocket.send_bytes(fp.read())
                     continue
 
+                # 1. Humanize Response (Limpieza anti-robótica)
+                formatted = await run_in_threadpool(humanize_response, response_text)
+                subtitle_txt = formatted["subtitle"]
+                speech_txt = formatted["speech"]
+
+                if not speech_txt.strip():
+                    speech_txt = "Listo."
+
                 # Fallback TTS with gTTS
-                tts = gTTS(text=response_text, lang='es')
+                tts = gTTS(text=speech_txt, lang='es')
                 fp = io.BytesIO()
                 tts.write_to_fp(fp)
                 fp.seek(0)
                 audio_response_bytes = fp.read()
                 
                 # Send text and audio
-                await websocket.send_json({"type": "text", "text": response_text})
+                await websocket.send_json({"type": "text", "text": subtitle_txt})
                 await websocket.send_bytes(audio_response_bytes)
             except Exception as tts_err:
                 print(f"TTS Error: {tts_err}")

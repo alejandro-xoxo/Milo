@@ -1,109 +1,117 @@
 import logging
 import os
-import re
-import ast
+import time
+import threading
 
-from src.tools.weather import get_current_weather
-from src.tools.file_reader import read_local_file
-from src.tools.list_dir import list_workspace_files
-from src.tools.web_search import web_search
-from src.tools.web_fetcher import fetch_page
-from src.tools.antigravity import run_antigravity
 from src.services.agy_brain import AgyBrain
-from src.services.circuit_breaker import execute_tool_with_resilience
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TOOL_REGISTRY = {
-    "get_current_weather": get_current_weather,
-    "read_local_file": read_local_file,
-    "list_workspace_files": list_workspace_files,
-    "web_search": web_search,
-    "fetch_page": fetch_page,
-    "run_antigravity": run_antigravity,
-}
-
-SYSTEM_CONTEXT = """
-Eres el motor de razonamiento de MILO. Si necesitas usar una herramienta,
-responde EXACTAMENTE así:
-TOOL_CALL: nombre_herramienta(parametro="valor")
-
-Herramientas disponibles:
-- get_current_weather(location: str)
-- read_local_file(filename: str)
-- list_workspace_files()
-- web_search(query: str, num_results: int)
-- fetch_page(url: str, max_chars: int)
-- run_antigravity(task: str, mode: str)
-"""
-
-def parse_tool_call(response_text: str):
-    match = re.search(r"TOOL_CALL:\s*([a-zA-Z0-9_]+)\((.*)\)", response_text)
-    if not match:
-        return None, None
-    fn_name = match.group(1)
-    args_str = match.group(2)
-    kwargs = {}
-    if args_str.strip():
-        try:
-            parsed = ast.parse(f"f({args_str})")
-            for keyword in parsed.body[0].value.keywords:
-                kwargs[keyword.arg] = ast.literal_eval(keyword.value)
-        except Exception as e:
-            logger.error(f"Error parsing args: {e}")
-            pass
-    return fn_name, kwargs
-
-def generate_response(prompt: str) -> dict:
+def generate_response(prompt: str, status_callback=None) -> dict:
+    """
+    Delega toda la lógica e inferencia nativa a Antigravity CLI (agy).
+    Eliminamos las herramientas redundantes de Python ya que Agy puede usar
+    nativamente sus propias herramientas (web_search, read_file, run_command, etc).
+    """
     project_path = os.getcwd()
     brain = AgyBrain(project_path)
     
-    full_prompt = SYSTEM_CONTEXT + f"\nUsuario: {prompt}"
-    execution_log = []
+    # Progreso REAL a través de transcript.jsonl
+    stop_simulation = threading.Event()
     
-    max_turns = 10
-    turns = 0
+    def simulate_progress():
+        brain_dir = os.path.expanduser("~/.gemini/antigravity-cli/brain/")
+        
+        # Encontrar el directorio más reciente (la conversación actual)
+        # Hacemos polling los primeros segundos hasta que aparezca
+        latest_transcript = None
+        for _ in range(10):
+            if stop_simulation.is_set():
+                break
+            try:
+                subdirs = [os.path.join(brain_dir, d) for d in os.listdir(brain_dir) if os.path.isdir(os.path.join(brain_dir, d))]
+                if subdirs:
+                    latest_dir = max(subdirs, key=os.path.getmtime)
+                    candidate = os.path.join(latest_dir, ".system_generated", "logs", "transcript.jsonl")
+                    if os.path.exists(candidate):
+                        # Nos aseguramos que sea reciente
+                        if time.time() - os.path.getmtime(candidate) < 10:
+                            latest_transcript = candidate
+                            break
+            except Exception:
+                pass
+            time.sleep(1)
+
+        if not latest_transcript:
+            # Fallback
+            if status_callback: status_callback("Pensando...")
+            return
+
+        # Tail del archivo
+        import json
+        try:
+            with open(latest_transcript, 'r') as f:
+                # Nos movemos al final del archivo actual
+                f.seek(0, 2)
+                while not stop_simulation.is_set():
+                    line = f.readline()
+                    if not line:
+                        time.sleep(0.5)
+                        continue
+                    
+                    try:
+                        data = json.loads(line.strip())
+                        if data.get("type") == "PLANNER_RESPONSE" and "tool_calls" in data:
+                            tools = data["tool_calls"]
+                            for tool in tools:
+                                name = tool.get("name")
+                                if name == "run_command":
+                                    cmd = tool.get("args", {}).get("CommandLine", "")
+                                    status_callback(f"Ejecutando: {cmd[:40]}...")
+                                elif name == "view_file" or name == "read_file":
+                                    path = tool.get("args", {}).get("AbsolutePath", "") or tool.get("args", {}).get("Target", "")
+                                    basename = os.path.basename(path) if path else "archivo"
+                                    status_callback(f"Leyendo {basename}...")
+                                elif name == "search_web":
+                                    status_callback("Buscando en la web...")
+                                else:
+                                    status_callback(f"Usando herramienta {name}...")
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    sim_thread = None
+    if status_callback:
+        sim_thread = threading.Thread(target=simulate_progress)
+        sim_thread.start()
     
-    current_prompt = full_prompt
-    response_text = ""
-    while turns < max_turns:
-        response_text = brain.ask(current_prompt, mode="chat")
-        
-        fn_name, fn_args = parse_tool_call(response_text)
-        
-        if fn_name:
-            logger.info(f"[AgyBrain] Executing tool: {fn_name} with args: {fn_args}")
-            execution_log.append({"tool": fn_name, "args": fn_args})
+    try:
+        # Aquí Agy hace todo su magia nativa, incluyendo llamadas a herramientas internas.
+        response_text = brain.ask(prompt, mode="chat")
+    finally:
+        stop_simulation.set()
+        if sim_thread:
+            sim_thread.join()
             
-            if fn_name in TOOL_REGISTRY:
-                try:
-                    result_value = execute_tool_with_resilience(fn_name, TOOL_REGISTRY[fn_name], **fn_args)
-                except Exception as e:
-                    result_value = f"Error executing tool: {e}"
-            else:
-                result_value = f"Error: Tool '{fn_name}' is not registered."
-                
-            current_prompt = f"Resultado de la herramienta {fn_name}: {result_value}\nResponde al usuario o haz otra llamada a herramienta."
-            turns += 1
-        else:
-            return {
-                "response": response_text,
-                "execution_log": execution_log,
-                "provider": "agy"
-            }
-            
+    if status_callback:
+        status_callback("Proceso completado.")
+
     return {
         "response": response_text,
-        "execution_log": execution_log,
+        "execution_log": [], # Ya no trackeamos herramientas de Python
         "provider": "agy"
     }
 
-def generate_audio_response(audio_bytes: bytes, mime_type: str = "audio/wav") -> dict:
+def generate_audio_response(audio_bytes: bytes, mime_type: str = "audio/wav", status_callback=None) -> dict:
     import speech_recognition as sr
     import tempfile
     import subprocess
     
+    if status_callback:
+        status_callback("Procesando audio (Speech-to-Text)...")
+        
     recognizer = sr.Recognizer()
     text = ""
     try:
@@ -146,4 +154,4 @@ def generate_audio_response(audio_bytes: bytes, mime_type: str = "audio/wav") ->
     if not text.strip() or text.startswith("Error") or text.startswith("No pude"):
         return {"response": text, "execution_log": [], "provider": "agy"}
         
-    return generate_response(text)
+    return generate_response(text, status_callback)

@@ -24,20 +24,24 @@ Actualmente, el único cerebro lógico de MILO es la **Antigravity CLI (`agy`)**
 
 ### Frontend
 *   **Stack:** Vanilla HTML5, CSS3, JavaScript (servido estáticamente desde `src/frontend/index.html`).
-*   **Diseño Interactivo (UI):** UI inmersiva con fondo espacial 3D (`Three.js`), cursor personalizado con destello lumínico (glow) y estilo Dark Mode / Glassmorphism importado del proyecto "Portafolio".
-*   **Avatar Sensorial:** El círculo central posee 3 estados ("Escuchando", "Procesando", "Hablando"). Reacciona en vivo a la amplitud del audio de respuesta utilizando la `Web Audio API` (`AnalyserNode`).
-*   **Comunicación:** WebSockets bidireccionales (`/ws/voice`). Implementa subtítulos progresivos sincronizados y un **panel lateral colapsable** que expone la telemetría del backend y herramientas activas (brindando transparencia sobre qué hace Agy en segundo plano).
-*   **Captura de Audio:** `MediaRecorder` API del navegador nativo.
+*   **Diseño Interactivo (UI Premium):** Interfaz inmersiva con fondos abstractos 3D (`Three.js`), tipografías corporativas (`Outfit`, `Inter`), y estilos avanzados de Glassmorphism.
+*   **Avatar Sensorial 3D (Efecto Olas/Bloom):** Un núcleo tridimensional (Icosaedros anidados y una esfera densa externa) que deforma sus vértices creando olas (efecto "Siri/Cortana") dependiendo de su estado:
+    *   **Inactivo (Cian):** Ondulación suave y respiración 3D.
+    *   **Procesando (Púrpura):** Rotación acelerada y olas agresivas de alta frecuencia.
+    *   **Hablando (Azul):** Expansión y pulsación reactiva en tiempo real al volumen del audio de respuesta usando la `Web Audio API` (`AnalyserNode`).
+    *   *Nota técnica:* Utiliza `EffectComposer` y `UnrealBloomPass` para generar luz emisiva volumétrica (Glow HDR) en tiempo real.
+*   **Comunicación e Interfaz:** WebSockets bidireccionales (`/ws/voice`), subtítulos progresivos con sombra dinámica, y un panel lateral colapsable para telemetría.
+*   **Captura de Audio (Push-To-Talk):** Integración nativa tipo Walkie-Talkie presionando la barra espaciadora (`Spacebar`), o usando el botón de la UI que captura vía `MediaRecorder`.
 
 ---
 
-## 3. Arquitectura "Zero API Keys" (`AgyBrain`)
+## 3. Arquitectura y Fusión de Identidad (MILO = Antigravity)
 
-Todo el flujo lógico y de procesamiento de lenguaje natural ha sido aislado en `src/services/agy_brain.py`.
+Históricamente, MILO dependía de un "Tool Orchestrator Local" en `agy_brain.py` que ejecutaba `agy --print` como un LLM ciego. **Actualmente la arquitectura ha dado un salto hacia la fusión total**:
 
-*   **Flujo de Inferencia:** Cuando el usuario habla o escribe, el prompt se inyecta en un contexto y se invoca como: `subprocess.run(["agy", "--print", prompt], ...)`.
-*   **Tool Orchestrator Local:** MILO fuerza a la CLI a usar un formato predeterminado para las herramientas (`TOOL_CALL: nombre_herramienta(param="valor")`).
-*   **Ejecución:** Si `AgyBrain` devuelve un `TOOL_CALL`, `gemini_service.py` (ahora actuando como orquestador general) parsea el string usando `ast`, ejecuta la herramienta (con tolerancia a fallos), inyecta el resultado al historial, y vuelve a invocar a `AgyBrain`.
+1.  **Fusión de Identidad (`AGENTS.md`):** Antigravity CLI ha adoptado permanentemente la persona y reglas operativas de MILO a nivel global del proyecto.
+2.  **Habilidades Nativas (`milo-core` Skill):** MILO ahora utiliza de manera directa y nativa las herramientas de Antigravity (búsqueda, edición, bash) sin depender de intermediarios de Python (`TOOL_CALL`), operando autónomamente en el espacio de trabajo.
+3.  **AgyBrain Local (Fallback/UI Orchestration):** Para las peticiones que ingresan por la interfaz web (`localhost:8000`), el backend sigue utilizando `AgyBrain` (ejecutando subprocesos locales de `agy`) y orquestando respuestas JSON/Audio, pero la mente operante real ya no requiere "falsificar" llamadas de herramientas: si el usuario llama a Antigravity en la CLI, interactúa directamente con el cerebro de MILO.
 
 ---
 
