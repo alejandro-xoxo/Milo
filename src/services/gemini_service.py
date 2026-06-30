@@ -8,6 +8,9 @@ from src.config import GEMINI_API_KEY, ANTHROPIC_API_KEY
 from src.tools.weather import get_current_weather
 from src.tools.file_reader import read_local_file
 from src.tools.list_dir import list_workspace_files
+from src.tools.web_search import web_search
+from src.tools.web_fetcher import fetch_page
+from src.tools.antigravity import run_antigravity
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -17,6 +20,9 @@ TOOL_REGISTRY = {
     "get_current_weather": get_current_weather,
     "read_local_file": read_local_file,
     "list_workspace_files": list_workspace_files,
+    "web_search": web_search,
+    "fetch_page": fetch_page,
+    "run_antigravity": run_antigravity,
 }
 
 # Define the JSON schemas for Claude (Anthropic requires strict JSON schema)
@@ -55,6 +61,61 @@ CLAUDE_TOOLS = [
         "input_schema": {
             "type": "object",
             "properties": {}
+        }
+    },
+    {
+        "name": "web_search",
+        "description": "Search the web using DuckDuckGo. Use this when you need current information from the internet about any topic.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The search query to look up on the web."
+                },
+                "num_results": {
+                    "type": "integer",
+                    "description": "Number of results to return (1-10). Default is 5."
+                }
+            },
+            "required": ["query"]
+        }
+    },
+    {
+        "name": "fetch_page",
+        "description": "Fetch and read the text content of a web page given its URL. Use this after web_search to read the full content of a result.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "The full URL of the web page to fetch (must start with http:// or https://)."
+                },
+                "max_chars": {
+                    "type": "integer",
+                    "description": "Maximum characters to return. Default is 8000."
+                }
+            },
+            "required": ["url"]
+        }
+    },
+    {
+        "name": "run_antigravity",
+        "description": "Delegate a complex coding or reasoning task to the Antigravity CLI agent. Use 'research' mode for safe read-only exploration and 'code' mode for active codebase modifications.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "task": {
+                    "type": "string",
+                    "description": "The detailed instruction or goal for the Antigravity agent to achieve."
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["research", "code"],
+                    "description": "The permission mode. 'research' is restricted and safe. 'code' allows modifying the workspace."
+                }
+            },
+            "required": ["task", "mode"]
         }
     }
 ]

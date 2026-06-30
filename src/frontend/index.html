@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MILO - Interfaz de Asistencia</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0c10;
+            --circle-color: #45f3ff;
+            --circle-glow: rgba(69, 243, 255, 0.5);
+            --text-color: #c5c6c7;
+            --panel-bg: rgba(31, 40, 51, 0.6);
+            --border-color: rgba(69, 243, 255, 0.2);
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background-color: var(--bg-color);
+            font-family: 'Outfit', sans-serif;
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            height: 90%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        header {
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            font-weight: 800;
+            font-size: 2rem;
+            color: var(--circle-color);
+            text-shadow: 0 0 10px var(--circle-glow);
+            margin-bottom: 20px;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            gap: 40px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Avatar / Jarvis Circle */
+        .avatar-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .circle {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 2px solid var(--border-color);
+            box-shadow: 0 0 20px var(--circle-glow), inset 0 0 20px var(--circle-glow);
+            animation: pulse 4s infinite linear;
+            transition: all 0.3s ease;
+        }
+
+        .circle.active {
+            border-color: #ff45a3;
+            box-shadow: 0 0 40px rgba(255, 69, 163, 0.8), inset 0 0 40px rgba(255, 69, 163, 0.8);
+            animation: pulse-active 1.5s infinite linear;
+        }
+
+        .circle-inner {
+            position: absolute;
+            width: 70%;
+            height: 70%;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(69,243,255,0.2) 0%, rgba(11,12,16,0) 70%);
+        }
+
+        .circle.active .circle-inner {
+            background: radial-gradient(circle, rgba(255,69,163,0.3) 0%, rgba(11,12,16,0) 70%);
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+
+        @keyframes pulse-active {
+            0% { transform: scale(0.9); opacity: 0.7; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(0.9); opacity: 0.7; }
+        }
+
+        /* Chat Panel */
+        .chat-panel {
+            flex: 1;
+            height: 100%;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .chat-history {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 12px 18px;
+            border-radius: 15px;
+            line-height: 1.5;
+            font-size: 1rem;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            background: rgba(69, 243, 255, 0.1);
+            border: 1px solid rgba(69, 243, 255, 0.3);
+            border-bottom-right-radius: 2px;
+        }
+
+        .message.milo {
+            align-self: flex-start;
+            background: rgba(255, 69, 163, 0.1);
+            border: 1px solid rgba(255, 69, 163, 0.3);
+            border-bottom-left-radius: 2px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Input Area */
+        .input-area {
+            display: flex;
+            padding: 20px;
+            gap: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-top: 1px solid var(--border-color);
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 15px;
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            outline: none;
+            transition: border 0.3s;
+        }
+
+        input[type="text"]:focus {
+            border-color: #ff45a3;
+        }
+
+        .btn {
+            background: rgba(69, 243, 255, 0.1);
+            border: 1px solid var(--circle-color);
+            color: var(--circle-color);
+            padding: 0 25px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn:hover {
+            background: var(--circle-color);
+            color: #000;
+            box-shadow: 0 0 15px var(--circle-color);
+        }
+
+        .btn.mic {
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            padding: 0;
+            font-size: 1.2rem;
+        }
+
+        .btn.mic.recording {
+            background: #ff45a3;
+            border-color: #ff45a3;
+            color: #fff;
+            animation: pulse-active 1s infinite;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.1);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(69, 243, 255, 0.3);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>MILO CORTEX</header>
+        
+        <div class="main-content">
+            <div class="avatar-container">
+                <div class="circle" id="milo-avatar"></div>
+                <div class="circle-inner"></div>
+            </div>
+
+            <div class="chat-panel">
+                <div class="chat-history" id="chat-history">
+                    <div class="message milo">Sistemas en línea. Conexión establecida. ¿En qué te puedo ayudar?</div>
+                </div>
+                <div class="input-area">
+                    <button class="btn mic" id="mic-btn">🎙️</button>
+                    <input type="text" id="text-input" placeholder="Ingresa tu comando o háblame..." autocomplete="off">
+                    <button class="btn" id="send-btn">Enviar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ws = new WebSocket(`ws://${window.location.host}/ws/voice`);
+        const chatHistory = document.getElementById('chat-history');
+        const textInput = document.getElementById('text-input');
+        const sendBtn = document.getElementById('send-btn');
+        const micBtn = document.getElementById('mic-btn');
+        const avatar = document.getElementById('milo-avatar');
+        
+        let isRecording = false;
+        let mediaRecorder;
+        let audioChunks = [];
+
+        ws.onopen = () => {
+            console.log("WebSocket connected.");
+        };
+
+        ws.onmessage = async (event) => {
+            if (typeof event.data === "string") {
+                const data = JSON.parse(event.data);
+                if (data.type === "text") {
+                    addMessage(data.text, 'milo');
+                    avatar.classList.remove('active');
+                } else if (data.type === "error") {
+                    addMessage(`Error: ${data.error}`, 'milo');
+                    avatar.classList.remove('active');
+                }
+            } else if (event.data instanceof Blob) {
+                // Audio response
+                const audioUrl = URL.createObjectURL(event.data);
+                const audio = new Audio(audioUrl);
+                avatar.classList.add('active');
+                audio.play();
+                audio.onended = () => {
+                    avatar.classList.remove('active');
+                };
+            }
+        };
+
+        function addMessage(text, sender) {
+            const div = document.createElement('div');
+            div.className = `message ${sender}`;
+            div.textContent = text;
+            chatHistory.appendChild(div);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        function sendMessage() {
+            const text = textInput.value.trim();
+            if (text && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ text }));
+                addMessage(text, 'user');
+                textInput.value = '';
+                avatar.classList.add('active'); // show thinking state
+            }
+        }
+
+        sendBtn.addEventListener('click', sendMessage);
+        textInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        // Audio Recording logic
+        async function setupAudio() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                
+                mediaRecorder.ondataavailable = e => {
+                    if (e.data.size > 0) audioChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    audioChunks = [];
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(audioBlob);
+                        addMessage("[Mensaje de voz enviado]", 'user');
+                        avatar.classList.add('active');
+                    }
+                };
+            } catch (err) {
+                console.error("Microphone access denied or error:", err);
+                alert("No se pudo acceder al micrófono.");
+            }
+        }
+
+        micBtn.addEventListener('click', async () => {
+            if (!mediaRecorder) await setupAudio();
+            if (!mediaRecorder) return;
+
+            if (!isRecording) {
+                mediaRecorder.start();
+                isRecording = true;
+                micBtn.classList.add('recording');
+            } else {
+                mediaRecorder.stop();
+                isRecording = false;
+                micBtn.classList.remove('recording');
+            }
+        });
+    </script>
+</body>
+</html>

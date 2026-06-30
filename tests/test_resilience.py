@@ -22,6 +22,14 @@ from src.services.circuit_breaker import execute_tool_with_resilience, ToolDisab
 def setup_and_teardown_db():
     """Fixture to initialize a test database and clean it up after tests."""
     init_db()
+    # Limpiar todas las tablas al inicio para evitar contaminación entre módulos de test
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM task_queue")
+    cursor.execute("DELETE FROM incidents")
+    cursor.execute("DELETE FROM tool_status")
+    conn.commit()
+    conn.close()
     yield
     # Cleanup test database file
     if os.path.exists("test_milo.db"):
@@ -168,10 +176,16 @@ def test_chat_endpoint_degraded_fallback(monkeypatch):
     assert "task_id" in data
     
     # Check that it was actually enqueued in the test database
-    task = get_next_pending_task()
-    assert task is not None
-    assert task["task_name"] == "chat_fallback_quota"
-    assert task["payload"]["prompt"] == "Test degraded prompt"
+    # Buscar la tarea por task_id retornado en la respuesta
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM task_queue WHERE id = ?", (data["task_id"],))
+    import json
+    row = cursor.fetchone()
+    conn.close()
+    assert row is not None
+    assert row["task_name"] == "chat_fallback_quota"
+    assert json.loads(row["payload"])["prompt"] == "Test degraded prompt"
 
 def test_circuit_breaker_reset_failures():
     """Verify that a successful tool run resets the failure count to 0."""

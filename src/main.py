@@ -1,5 +1,10 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
+import os
+import io
+from gtts import gTTS
 from pydantic import BaseModel
 from src.services.gemini_service import generate_response
 from src.config import HOST, PORT
@@ -22,6 +27,18 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan
 )
+
+frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
+os.makedirs(frontend_dir, exist_ok=True)
+app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
+
+@app.get("/")
+async def get_index():
+    index_path = os.path.join(frontend_dir, "index.html")
+    if os.path.exists(index_path):
+        with open(index_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    return {"message": "Frontend not ready"}
 
 class ChatRequest(BaseModel):
     prompt: str
@@ -140,6 +157,79 @@ async def chat_audio_endpoint(file: UploadFile = File(...)):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing audio chat: {str(e)}")
+
+@app.get("/session/greeting")
+async def session_greeting():
+    """
+    Endpoint proactivo: genera un saludo de apertura de sesión con señales
+    del entorno (errores, tareas pendientes, archivos modificados).
+    """
+    from src.services.proactive_engine import get_session_greeting
+    try:
+        result = get_session_greeting()
+        return result
+    except Exception as e:
+        return {"greeting": f"¡Hola! No pude analizar el estado del sistema: {str(e)}", "signals": [], "triggers": []}
+
+@app.post("/skills/check")
+async def check_skill_creation(task_type: str = "", metadata: dict = None):
+    """
+    Endpoint para registrar un patrón de tarea y auto-crear una skill si se detecta
+    que la tarea se ha repetido suficientes veces.
+    """
+    from src.services.skill_creator import auto_create_skill_if_needed, init_skill_tables
+    try:
+        init_skill_tables()
+        result = auto_create_skill_if_needed(task_type, metadata)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error checking skill creation: {str(e)}")
+
+@app.websocket("/ws/voice")
+async def websocket_voice_endpoint(websocket: WebSocket):
+    from starlette.concurrency import run_in_threadpool
+    from src.services.gemini_service import generate_response, generate_audio_response
+    await websocket.accept()
+    try:
+        while True:
+            message = await websocket.receive()
+            
+            response_text = ""
+            if "text" in message:
+                user_text = message["text"]
+                result = await run_in_threadpool(generate_response, user_text)
+                response_text = result["response"]
+            elif "bytes" in message:
+                audio_bytes = message["bytes"]
+                result = await run_in_threadpool(generate_audio_response, audio_bytes, mime_type="audio/webm")
+                response_text = result["response"]
+            else:
+                continue
+            
+            try:
+                # Fallback TTS with gTTS
+                tts = gTTS(text=response_text, lang='es')
+                fp = io.BytesIO()
+                tts.write_to_fp(fp)
+                fp.seek(0)
+                audio_response_bytes = fp.read()
+                
+                # Send text and audio
+                await websocket.send_json({"type": "text", "text": response_text})
+                await websocket.send_bytes(audio_response_bytes)
+            except Exception as tts_err:
+                print(f"TTS Error: {tts_err}")
+                await websocket.send_json({"type": "text", "text": response_text})
+                await websocket.send_json({"type": "error", "error": "Error generating audio."})
+                
+    except WebSocketDisconnect:
+        print("WebSocket client disconnected")
+    except Exception as e:
+        print(f"WebSocket Error: {e}")
+        try:
+            await websocket.send_json({"type": "error", "error": str(e)})
+        except:
+            pass
 
 if __name__ == "__main__":
     import uvicorn
