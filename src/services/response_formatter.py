@@ -17,33 +17,35 @@ def humanize_response(raw_text: str) -> dict:
     if not raw_text or not raw_text.strip():
         return {"subtitle": "", "speech": ""}
 
-    # 1. Eliminar residuos de formato de agente
+    # 1. Eliminar residuos de formato de agente y muletillas robóticas al inicio
     text = raw_text
     text = re.sub(r'^(Thought:|Response:|\[MILO\])\s*', '', text, flags=re.IGNORECASE|re.MULTILINE)
-    
-    # Eliminar posibles numeraciones excesivas de pasos si es muy mecánico
-    # Solo lo hacemos de forma conservadora
-    
+    text = re.sub(r'^(aquí tienes|por supuesto,|claro,|entendido,|listo,|perfecto,|de acuerdo,)\s*', '', text, flags=re.IGNORECASE)
     text = text.strip()
 
-    # 2. Recortar verbosidad (segunda pasada con AgyBrain si > 400 chars)
-    if len(text) > 400:
+    # 2. Recortar verbosidad (segunda pasada con AgyBrain si > 250 chars)
+    if len(text) > 250:
         logger.info("Respuesta larga detectada. Invocando AgyBrain para resumir (anti-robótico).")
         brain = AgyBrain(os.getcwd())
         
         # OPTIMIZACIÓN DE TOKENS: No enviar todo el bloque gigante.
-        # Solo tomamos los primeros 1000 caracteres, suficiente para que el LLM entienda el contexto y lo resuma.
         text_for_summary = text[:1000] + ("\n...[truncado]" if len(text) > 1000 else "")
         
         prompt = (
-            "Eres MILO. Toma el siguiente reporte técnico y resúmelo en máximo 2-3 frases cortas. "
-            "Usa un tono muy natural y conversacional, como si hablaras por voz. "
+            "Eres MILO. Toma el siguiente texto técnico y redacta una respuesta extremadamente directa, concisa y natural, "
+            "óptima para ser leída por un sintetizador de voz. "
+            "Sigue estas reglas estrictamente:\n"
+            "1. Ve directo al grano sin preámbulos robóticos.\n"
+            "2. No uses listas con viñetas ni numeradas.\n"
+            "3. Limítate a máximo 1 o 2 oraciones muy cortas y conversacionales.\n"
+            "4. Evita totalmente usar formato markdown (como asteriscos o hashtags).\n\n"
             "Texto original:\n\n" + text_for_summary
         )
         try:
             summary = brain.ask(prompt, mode="chat")
             # Volver a limpiar por si AgyBrain agregó "Response:" al inicio del resumen
             summary = re.sub(r'^(Thought:|Response:|\[MILO\])\s*', '', summary, flags=re.IGNORECASE|re.MULTILINE)
+            summary = re.sub(r'^(aquí tienes|por supuesto,|claro,|entendido,|listo,|perfecto,|de acuerdo,)\s*', '', summary, flags=re.IGNORECASE)
             if summary.strip():
                 text = summary.strip()
         except Exception as e:
