@@ -5,7 +5,10 @@
 ## 1. Visión General
 MILO es un asistente personal autónomo y resiliente (estilo Jarvis) que opera a través de una interfaz web conversacional (texto y voz). Originalmente dependía de integraciones directas vía API con Gemini y Anthropic, pero **ha sido refactorizado a una arquitectura "Zero API Keys"**. 
 
-Actualmente, el único cerebro lógico de MILO es la **Antigravity CLI (`agy`)**, la cual se ejecuta como un subproceso local autenticado con la cuenta de Google del usuario. MILO actúa como orquestador, proveedor de herramientas y servidor de la interfaz gráfica.
+Actualmente, el cerebro lógico de MILO cuenta con una estructura de doble motor:
+1.  **OpenClaw Gateway (Primario)**: Orquestador multi-proveedor local que distribuye las consultas al motor configurado.
+2.  **Vulcan CLI / `agy` (Respaldo)**: Ejecución local autenticada con la cuenta de Google del usuario, que actúa como fallback automático cuando OpenClaw no está disponible.
+MILO actúa como orquestador general, proveedor de herramientas y servidor de la interfaz gráfica.
 
 ---
 
@@ -17,18 +20,19 @@ Actualmente, el único cerebro lógico de MILO es la **Antigravity CLI (`agy`)**
 *   **Base de Datos:** SQLite (`src/services/db_service.py`), usada para:
     *   Registro de incidentes (`incidents`).
     *   Cola de tareas asíncronas (`task_queue`).
-    *   Manejo de estado de herramientas (`tool_status`).
+    *   Manejo de estado de herramientas y motor activo (`tool_status`).
     *   Auto-creación de skills (`task_patterns`).
-*   **Motor de Inferencia:** `Antigravity CLI` (ejecutado vía `subprocess.run` con el flag `--dangerously-skip-permissions` para ejecución autónoma sin bloqueos). Emplea el modelo `"Gemini 3.5 Flash (Medium)"`. No existen dependencias directas de SDKs como `google-genai` ni `anthropic`.
+*   **Motor de Inferencia:** `OpenClaw` corriendo como daemon local (`http://127.0.0.1:18789`) es el motor principal. Como fallback de bajo nivel y contingencia, MILO ejecuta `Antigravity CLI` (renombrado internamente en la telemetría como **Vulcan**) vía `subprocess.run` con el flag `--dangerously-skip-permissions` para ejecución autónoma sin bloqueos.
 *   **Síntesis y Procesamiento de Voz:** Usa un binario local estático de `ffmpeg` (instalado en `.venv/bin/`) para transcodificación de audio. Cuenta con autodetección robusta de formatos de contenedor (.webm, .ogg, .wav, .mp3, .m4a) a partir de bytes mágicos y tipo MIME, control estricto de errores de FFmpeg y limpieza garantizada de archivos temporales. `gTTS` se mantiene como fallback para la síntesis de voz.
 
 ### Frontend
 *   **Stack:** Vanilla HTML5, CSS3, JavaScript (servido estáticamente desde `src/frontend/index.html`).
 *   **Diseño Interactivo (UI Premium):** Interfaz inmersiva con fondos abstractos 3D (`Three.js`), tipografías corporativas (`Outfit`, `Inter`), estilos avanzados de Glassmorphism y una elegante paleta monocromática (blancos y negros).
 *   **Avatar Sensorial 3D (Efecto Olas/Bloom y Física Interactiva):** Un núcleo tridimensional (Icosaedros anidados y una esfera densa externa) que deforma sus vértices y responde visualmente a los estados:
-    *   **Inactivo (Cian):** Ondulación suave y respiración 3D.
+    *   **Inactivo (Blanco):** Ondulación suave y respiración 3D.
     *   **Procesando (Púrpura):** Rotación acelerada, olas agresivas de alta frecuencia, chorros relativistas (Relativistic Jets) si la densidad de partículas lo permite y oscilación de deriva elíptica orgánica e inquieta.
-    *   **Hablando (Azul):** Expansión y pulsación reactiva en tiempo real al volumen del audio de respuesta usando la `Web Audio API` (`AnalyserNode`).
+    *   **Hablando (Blanco):** Expansión y pulsación reactiva en tiempo real al volumen del audio de respuesta usando la `Web Audio API` (`AnalyserNode`).
+    *   **Escuchando (Azul Verdoso):** Movimiento vibratorio en espera de entrada de audio.
     *   **Interactivo / Físicas Dinámicas:** Los anillos de partículas implementan dinámicas de esquivado ("dodge") huyendo suavemente de la posición del cursor de forma matemática con amortiguación y rigidez programadas.
     *   *Nota técnica:* Utiliza `EffectComposer` y `UnrealBloomPass` para generar luz emisiva volumétrica (Glow HDR) en tiempo real, optimizando el rendimiento mediante el cacheo de cálculos matemáticos repetitivos en los bucles de renderizado.
 *   **Comunicación e Interfaz:** WebSockets bidireccionales (`/ws/voice`), subtítulos progresivos con sombra dinámica, y un panel lateral colapsable para telemetría.
@@ -42,7 +46,7 @@ Históricamente, MILO dependía de un "Tool Orchestrator Local" en `agy_brain.py
 
 1.  **Fusión de Identidad (`AGENTS.md`):** Antigravity CLI ha adoptado permanentemente la persona y reglas operativas de MILO a nivel global del proyecto.
 2.  **Habilidades Nativas (`milo-core` Skill):** MILO ahora utiliza de manera directa y nativa las herramientas de Antigravity (búsqueda, edición, bash) sin depender de intermediarios de Python (`TOOL_CALL`), operando autónomamente en el espacio de trabajo.
-3.  **AgyBrain Local (Fallback/UI Orchestration):** Para las peticiones que ingresan por la interfaz web (`localhost:8000`), el backend sigue utilizando `AgyBrain` (ejecutando subprocesos locales de `agy`) y orquestando respuestas JSON/Audio, pero la mente operante real ya no requiere "falsificar" llamadas de herramientas: si el usuario llama a Antigravity en la CLI, interactúa directamente con el cerebro de MILO.
+3.  **AgyBrain Local (Fallback/UI Orchestration):** Para las peticiones que ingresan por la interfaz web (`localhost:8000`), el backend utiliza `AgyBrain` para enrutarlas por defecto a OpenClaw. Si se detecta un error de cuota o de red, `AgyBrain` conmuta automáticamente a Vulcan (CLI), reportando el estado del procesamiento en el panel de Procesos Activos del frontend. La mente operante sigue fusionada con la identidad de MILO.
 4.  **Humanización Estricta de Respuestas:** El formateador en `src/services/response_formatter.py` erradica muletillas e introducciones robóticas. Además, se redujo el umbral de activación para la reescritura con LLM de 400 a 250 caracteres, usando un prompt estricto en `AgyBrain` para obtener respuestas concisas de 1-2 oraciones sin formato markdown, optimizadas para voz (TTS).
 
 ---
@@ -74,8 +78,8 @@ El sistema cuenta con un registro centralizado (`TOOL_REGISTRY`) con las siguien
 
 ## 6. Puntos Críticos y Fragilidades Conocidas
 
-*   **Dependencia Estricta de la Salida de `agy`:** El orquestador depende de que Antigravity CLI no altere silenciosamente su stdout. Cambios abruptos en cómo `agy` devuelve texto pueden romper el Regex de `TOOL_CALL:`. La invocación se realiza con el flag `--dangerously-skip-permissions` para prevenir bloqueos interactivos por solicitudes de permisos.
-*   **Latencia y Límites de Cuota (Error 429):** Dado que el razonamiento ocurre mediante la cuenta de Google vinculada al CLI de Antigravity, es posible agotar la cuota (e.g. uso de modelos pesados). Cuando esto ocurre (respuesta vacía o error 429), la UI de MILO intercepta el fallo vía evento WebSocket, muestra un estado visual de error en el Avatar y notifica al usuario informándole que "la tarea quedó en cola".
+*   **Dependencia Estricta de la Salida de `agy`:** Reducida significativamente al emplear OpenClaw como motor principal. Cuando se desvía la consulta a Vulcan (CLI), el orquestador aún depende de que `agy` no altere silenciosamente su stdout. La invocación de fallback se realiza con el flag `--dangerously-skip-permissions` para prevenir bloqueos interactivos.
+*   **Latencia y Límites de Cuota (Error 429):** Mitigados con la arquitectura de doble motor. Si OpenClaw (principal) falla o sufre limitaciones, MILO conmuta automáticamente a Vulcan (CLI) en tiempo real. Sólo si ambos motores fallan consecutivamente o están deshabilitados por el *circuit breaker*, las peticiones se encolan en la base de datos (Background Task Queue).
 *   **Persistencia:** La DB SQLite (`milo.db` o `test_milo.db`) es la única fuente de verdad para el estado de las tareas y habilidades. No se usa Redis ni colas en memoria.
 
 ## 7. Instrucciones para Ejecución
@@ -84,6 +88,6 @@ El sistema cuenta con un registro centralizado (`TOOL_REGISTRY`) con las siguien
 source .venv/bin/activate
 # Iniciar Servidor (Host en http://localhost:8000)
 python -m src.main
-# Pruebas Unitarias (83/83 pasando)
+# Pruebas Unitarias (55/55 pasando)
 python -m pytest tests/
 ```
