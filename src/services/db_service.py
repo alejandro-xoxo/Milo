@@ -138,7 +138,7 @@ def reset_tool_failures(tool_name: str):
     ON CONFLICT(tool_name) DO UPDATE SET
         failure_count = 0,
         disabled_until = NULL
-    """)
+    """, (tool_name,))
     conn.commit()
     conn.close()
 

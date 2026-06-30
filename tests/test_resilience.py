@@ -173,4 +173,28 @@ def test_chat_endpoint_degraded_fallback(monkeypatch):
     assert task["task_name"] == "chat_fallback_quota"
     assert task["payload"]["prompt"] == "Test degraded prompt"
 
+def test_circuit_breaker_reset_failures():
+    """Verify that a successful tool run resets the failure count to 0."""
+    from src.services.db_service import record_tool_failure, get_tool_failure_status
+    from src.services.circuit_breaker import execute_tool_with_resilience
+    
+    tool_name = "test_reset_tool"
+    
+    # Record a failure
+    record_tool_failure(tool_name)
+    status = get_tool_failure_status(tool_name)
+    assert status["failure_count"] == 1
+    
+    # Run successful function
+    def dummy_success(x):
+        return x * 2
+        
+    result = execute_tool_with_resilience(tool_name, dummy_success, x=5)
+    assert result == "10"
+    
+    # Failure count should be reset to 0
+    status_after = get_tool_failure_status(tool_name)
+    assert status_after["failure_count"] == 0
+
+
 
