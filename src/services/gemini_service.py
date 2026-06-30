@@ -1,7 +1,10 @@
 import logging
+import os
 from google import genai
 from google.genai import types
-from src.config import GEMINI_API_KEY
+from anthropic import Anthropic
+
+from src.config import GEMINI_API_KEY, ANTHROPIC_API_KEY
 from src.tools.weather import get_current_weather
 from src.tools.file_reader import read_local_file
 from src.tools.list_dir import list_workspace_files
@@ -16,29 +19,57 @@ TOOL_REGISTRY = {
     "list_workspace_files": list_workspace_files,
 }
 
-def get_client() -> genai.Client:
+# Define the JSON schemas for Claude (Anthropic requires strict JSON schema)
+CLAUDE_TOOLS = [
+    {
+        "name": "get_current_weather",
+        "description": "Get the current weather forecast for a given location.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "location": {
+                    "type": "string",
+                    "description": "The city and state/country, e.g., 'San Francisco, CA' or 'Madrid, Spain'."
+                }
+            },
+            "required": ["location"]
+        }
+    },
+    {
+        "name": "read_local_file",
+        "description": "Read the contents of a local text file within the project workspace.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "filename": {
+                    "type": "string",
+                    "description": "The relative path to the file from the workspace root (e.g. 'MILO_plan.md' or 'src/config.py')."
+                }
+            },
+            "required": ["filename"]
+        }
+    },
+    {
+        "name": "list_workspace_files",
+        "description": "List all non-ignored files and folders recursively in the project workspace.",
+        "input_schema": {
+            "type": "object",
+            "properties": {}
+        }
+    }
+]
+
+def get_gemini_client() -> genai.Client:
     """Initialize and return the Google GenAI Client."""
     if not GEMINI_API_KEY:
-        raise ValueError("GEMINI_API_KEY is not set. Please set it in your .env file.")
+        raise ValueError("GEMINI_API_KEY is not set.")
     return genai.Client(api_key=GEMINI_API_KEY)
 
-def generate_response(prompt: str) -> dict:
-    """
-    Sends a prompt to Gemini, handles the execution of requested tools in a manual loop,
-    and returns the final text response along with a log of executed tools.
-    
-    Args:
-        prompt: The user query.
-        
-    Returns:
-        A dict containing 'response' (str) and 'execution_log' (list of dicts).
-    """
-    client = get_client()
-    
-    # We pass our functions to tools. The SDK extracts type annotations and docstrings.
+def generate_gemini_response(prompt: str) -> dict:
+    """Queries Gemini 2.5 Flash with custom tools in a loop."""
+    client = get_gemini_client()
     tools_list = list(TOOL_REGISTRY.values())
     
-    # Create the chat session
     chat = client.chats.create(
         model="gemini-2.5-flash",
         config=types.GenerateContentConfig(
@@ -54,15 +85,11 @@ def generate_response(prompt: str) -> dict:
     )
     
     execution_log = []
-    
-    # Send initial user prompt
     response = chat.send_message(prompt)
-    
     max_turns = 10
     turns = 0
     
     while turns < max_turns:
-        # Check if the response contains any function calls
         if not response.candidates or not response.candidates[0].content or not response.candidates[0].content.parts:
             break
             
@@ -73,19 +100,16 @@ def generate_response(prompt: str) -> dict:
                 break
                 
         if not function_call:
-            # No tool call requested, this is the final response
             break
             
         fn_name = function_call.name
         fn_args = function_call.args
         
-        logger.info(f"Model requested tool call: {fn_name} with args: {fn_args}")
+        logger.info(f"[Gemini] Executing tool: {fn_name} with args: {fn_args}")
         execution_log.append({"tool": fn_name, "args": dict(fn_args) if fn_args else {}})
         
-        # Execute the tool
         if fn_name in TOOL_REGISTRY:
             try:
-                # Call the registered function with model-provided arguments
                 result_value = TOOL_REGISTRY[fn_name](**fn_args)
                 result = {"result": result_value}
             except Exception as e:
@@ -94,7 +118,6 @@ def generate_response(prompt: str) -> dict:
         else:
             result = {"error": f"Tool '{fn_name}' is not registered."}
             
-        # Send the function response back to the chat session to proceed
         response = chat.send_message(
             types.Part.from_function_response(
                 name=fn_name,
@@ -105,5 +128,125 @@ def generate_response(prompt: str) -> dict:
         
     return {
         "response": response.text if response.text else "No text response generated.",
-        "execution_log": execution_log
+        "execution_log": execution_log,
+        "provider": "gemini"
     }
+
+def generate_claude_response(prompt: str) -> dict:
+    """Queries Claude 3.5 Sonnet with custom tools in a loop."""
+    if not ANTHROPIC_API_KEY:
+        raise ValueError("ANTHROPIC_API_KEY is not set.")
+        
+    logger.info("Initializing Claude client...")
+    client = Anthropic(api_key=ANTHROPIC_API_KEY)
+    
+    messages = [
+        {"role": "user", "content": prompt}
+    ]
+    
+    execution_log = []
+    max_turns = 10
+    turns = 0
+    
+    while turns < max_turns:
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20240620",
+            max_tokens=4000,
+            system=(
+                "You are MILO, a highly advanced personal assistant. "
+                "You have access to tools for listing files, reading files, and checking the weather. "
+                "Always check the files in the workspace using list_workspace_files if the user asks "
+                "about project files, configuration, or plans."
+            ),
+            tools=CLAUDE_TOOLS,
+            messages=messages,
+            temperature=0.2
+        )
+        
+        # Look for tool use blocks in the assistant response
+        tool_uses = [block for block in response.content if block.type == "tool_use"]
+        
+        if not tool_uses:
+            text_blocks = [block.text for block in response.content if block.type == "text"]
+            final_text = "\n".join(text_blocks)
+            return {
+                "response": final_text,
+                "execution_log": execution_log,
+                "provider": "claude"
+            }
+            
+        # Record the assistant response containing tool uses in the messages history
+        assistant_content = []
+        for block in response.content:
+            if block.type == "text":
+                assistant_content.append({"type": "text", "text": block.text})
+            elif block.type == "tool_use":
+                assistant_content.append({
+                    "type": "tool_use",
+                    "id": block.id,
+                    "name": block.name,
+                    "input": block.input
+                })
+        messages.append({"role": "assistant", "content": assistant_content})
+        
+        # Execute each requested tool and format the response blocks
+        tool_results_content = []
+        for tool_use in tool_uses:
+            fn_name = tool_use.name
+            fn_args = tool_use.input
+            tool_use_id = tool_use.id
+            
+            logger.info(f"[Claude] Executing tool: {fn_name} with args: {fn_args}")
+            execution_log.append({"tool": fn_name, "args": dict(fn_args) if fn_args else {}})
+            
+            if fn_name in TOOL_REGISTRY:
+                try:
+                    result_value = TOOL_REGISTRY[fn_name](**fn_args)
+                except Exception as e:
+                    logger.error(f"Error executing tool {fn_name}: {e}")
+                    result_value = f"Error executing tool: {str(e)}"
+            else:
+                result_value = f"Error: Tool '{fn_name}' is not registered."
+                
+            tool_results_content.append({
+                "type": "tool_result",
+                "tool_use_id": tool_use_id,
+                "content": result_value
+            })
+            
+        # Append the tool execution results to messages history as a user turn
+        messages.append({"role": "user", "content": tool_results_content})
+        turns += 1
+        
+    text_blocks = [block.text for block in response.content if block.type == "text"]
+    return {
+        "response": "\n".join(text_blocks) or "Exceeded maximum tool execution turns.",
+        "execution_log": execution_log,
+        "provider": "claude"
+    }
+
+def generate_response(prompt: str) -> dict:
+    """
+    Tries to generate a response using Gemini first. If a limit/quota error
+    occurs, falls back to Claude 3.5 Sonnet automatically.
+    """
+    try:
+        logger.info("Attempting generation with Gemini (gemini-2.5-flash)...")
+        return generate_gemini_response(prompt)
+    except Exception as e:
+        error_msg = str(e).lower()
+        # Detect common API quota errors
+        is_quota_error = any(kw in error_msg for kw in ["quota", "limit", "429", "exhausted"])
+        
+        if is_quota_error or not GEMINI_API_KEY:
+            logger.warning(f"Gemini API quota/availability issue: {e}. Switching to Claude 3.5 Sonnet...")
+            try:
+                return generate_claude_response(prompt)
+            except Exception as claude_err:
+                logger.error(f"Claude fallback failed: {claude_err}")
+                raise RuntimeError(
+                    f"Both Gemini and Claude fallback failed.\nGemini Error: {e}\nClaude Error: {claude_err}"
+                )
+        else:
+            logger.error(f"Gemini encountered a non-quota error: {e}")
+            raise e
