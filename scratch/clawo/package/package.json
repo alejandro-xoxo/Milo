@@ -1,0 +1,114 @@
+{
+  "name": "@enderfga/claw-orchestrator",
+  "version": "4.4.0",
+  "description": "Claw Orchestrator — run Claude Code, Codex, Gemini, Cursor Agent, OpenCode and custom coding CLIs as one unified runtime. Drop into Hermes Agent, Claude Desktop, Cursor, Cline, Continue, Zed, Windsurf, Goose or any Model Context Protocol (MCP) host, install as an OpenClaw plugin, or run standalone. Persistent sessions, multi-agent council, ultraplan, ultrareview, autoloop, tool orchestration.",
+  "type": "module",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "bin": {
+    "clawo": "./dist/bin/cli.js",
+    "clawo-mcp": "./dist/bin/mcp-server.js"
+  },
+  "openclaw": {
+    "extensions": [
+      "./dist/src/index.js"
+    ],
+    "hooks": {}
+  },
+  "files": [
+    "dist/",
+    "configs/",
+    "skills/",
+    "openclaw.plugin.json",
+    "README.md",
+    "LICENSE",
+    "assets/banner.jpg"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsc && node scripts/postbuild.mjs",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src/ bin/",
+    "lint:fix": "eslint src/ bin/ --fix",
+    "format": "prettier --write 'src/**/*.ts' 'bin/**/*.ts'",
+    "format:check": "prettier --check 'src/**/*.ts' 'bin/**/*.ts'",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "keywords": [
+    "claw",
+    "openclaw",
+    "claw-orchestrator",
+    "claude-code",
+    "codex",
+    "gemini",
+    "cursor",
+    "cursor-agent",
+    "opencode",
+    "coding-agent",
+    "ai-agent",
+    "agent-orchestration",
+    "agent-council",
+    "multi-agent",
+    "multi-engine",
+    "persistent-sessions",
+    "session-management",
+    "tool-orchestration",
+    "cli",
+    "typescript",
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "modelcontextprotocol",
+    "hermes",
+    "hermes-agent",
+    "nous-research",
+    "claude-desktop",
+    "claude-mcp",
+    "cursor-mcp",
+    "cline",
+    "continue-dev",
+    "zed",
+    "windsurf",
+    "goose",
+    "anthropic",
+    "openai",
+    "google-gemini"
+  ],
+  "author": "enderfga",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Enderfga/claw-orchestrator.git"
+  },
+  "homepage": "https://github.com/Enderfga/claw-orchestrator#readme",
+  "bugs": {
+    "url": "https://github.com/Enderfga/claw-orchestrator/issues"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "commander": "^12.1.0",
+    "diff": "^9.0.0",
+    "re2": "^1.24.1"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.3.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.15.0",
+    "@types/diff": "^7.0.2",
+    "@types/node": "^22.10.0",
+    "@vitest/coverage-v8": "^3.1.0",
+    "eslint": "^9.15.0",
+    "eslint-config-prettier": "^10.1.0",
+    "prettier": "^3.5.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.20.0",
+    "vitest": "^3.1.0"
+  }
+}
