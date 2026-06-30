@@ -144,3 +144,10 @@ cython_debug/
 # OS files
 .DS_Store
 Thumbs.db
+
+# MILO SQLite Databases
+milo.db
+milo.db-journal
+test_milo.db
+test_milo.db-journal
+

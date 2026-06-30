@@ -110,12 +110,9 @@ def generate_gemini_response(prompt: str) -> dict:
         execution_log.append({"tool": fn_name, "args": dict(fn_args) if fn_args else {}})
         
         if fn_name in TOOL_REGISTRY:
-            try:
-                result_value = TOOL_REGISTRY[fn_name](**fn_args)
-                result = {"result": result_value}
-            except Exception as e:
-                logger.error(f"Error executing tool {fn_name}: {e}")
-                result = {"error": str(e)}
+            from src.services.circuit_breaker import execute_tool_with_resilience
+            result_value = execute_tool_with_resilience(fn_name, TOOL_REGISTRY[fn_name], **fn_args)
+            result = {"result": result_value}
         else:
             result = {"error": f"Tool '{fn_name}' is not registered."}
             
@@ -201,11 +198,8 @@ def generate_claude_response(prompt: str) -> dict:
             execution_log.append({"tool": fn_name, "args": dict(fn_args) if fn_args else {}})
             
             if fn_name in TOOL_REGISTRY:
-                try:
-                    result_value = TOOL_REGISTRY[fn_name](**fn_args)
-                except Exception as e:
-                    logger.error(f"Error executing tool {fn_name}: {e}")
-                    result_value = f"Error executing tool: {str(e)}"
+                from src.services.circuit_breaker import execute_tool_with_resilience
+                result_value = execute_tool_with_resilience(fn_name, TOOL_REGISTRY[fn_name], **fn_args)
             else:
                 result_value = f"Error: Tool '{fn_name}' is not registered."
                 
