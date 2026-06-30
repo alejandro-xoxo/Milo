@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
 
 # Forzar ruta de base de datos de prueba ANTES de importar cualquier servicio
-os.environ["DB_PATH"] = "test_proactive.db"
+os.environ["DB_PATH"] = "test_milo.db"
 # Apuntar PROJECT_ROOT a un directorio temporal para evitar lecturas reales
 os.environ["PROJECT_ROOT"] = "/tmp/milo_proactive_test"
 
@@ -46,10 +46,21 @@ def setup_and_teardown_db(tmp_path):
     os.environ["PROJECT_ROOT"] = str(tmp_path)
 
     init_db()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM tool_status")
+    cursor.execute("DELETE FROM incidents")
+    cursor.execute("DELETE FROM task_queue")
+    cursor.execute("DELETE FROM chat_history")
+    conn.commit()
+    conn.close()
     yield
     # Cleanup
-    if os.path.exists("test_proactive.db"):
-        os.remove("test_proactive.db")
+    if os.path.exists("test_milo.db"):
+        try:
+            os.remove("test_milo.db")
+        except:
+            pass
 
 
 # ---------------------------------------------------------------------------
