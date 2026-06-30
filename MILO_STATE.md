@@ -1,13 +1,13 @@
-# Estado Actual de MILO (MILO V2)
+# Estado Actual de MILO (MILO V3)
 
 > **Documento de Contexto para Agentes de IA:** Este archivo contiene la arquitectura exacta, estado actual y tecnologías utilizadas en el proyecto MILO. Lee este documento cuidadosamente antes de proponer cambios arquitectónicos o refactorizaciones.
 
 ## 1. Visión General
 MILO es un asistente personal autónomo y resiliente (estilo Jarvis) que opera a través de una interfaz web conversacional (texto y voz). Originalmente dependía de integraciones directas vía API con Gemini y Anthropic, pero **ha sido refactorizado a una arquitectura "Zero API Keys"**. 
 
-Actualmente, el cerebro lógico de MILO cuenta con una estructura de doble motor:
-1.  **OpenClaw Gateway (Primario)**: Orquestador multi-proveedor local que distribuye las consultas al motor configurado.
-2.  **Vulcan CLI / `agy` (Respaldo)**: Ejecución local autenticada con la cuenta de Google del usuario, que actúa como fallback automático cuando OpenClaw no está disponible.
+Actualmente, el cerebro lógico de MILO cuenta con una estructura de doble motor de orquestación avanzada (V3):
+1.  **OpenClaw Gateway (Primario)**: Orquestador local multi-proveedor que corre como un daemon de systemd usuario, dotado de sesiones persistentes e historial resumido y recortado dinámicamente con caché.
+2.  **Vulcan CLI / `agy` (Respaldo)**: Ejecución local autenticada con la cuenta de Google del usuario que actúa como fallback automático cuando OpenClaw no está disponible o falla.
 MILO actúa como orquestador general, proveedor de herramientas y servidor de la interfaz gráfica.
 
 ---
@@ -22,7 +22,8 @@ MILO actúa como orquestador general, proveedor de herramientas y servidor de la
     *   Cola de tareas asíncronas (`task_queue`).
     *   Manejo de estado de herramientas y motor activo (`tool_status`).
     *   Auto-creación de skills (`task_patterns`).
-*   **Motor de Inferencia:** `OpenClaw` corriendo como daemon local (`http://127.0.0.1:18789`) es el motor principal. Como fallback de bajo nivel y contingencia, MILO ejecuta `Antigravity CLI` (renombrado internamente en la telemetría como **Vulcan**) vía `subprocess.run` con el flag `--dangerously-skip-permissions` para ejecución autónoma sin bloqueos.
+    *   Persistencia de historial de conversación y caché de resúmenes (`chat_history`).
+*   **Motor de Inferencia:** `OpenClaw` corriendo como daemon supervisado de systemd (`http://127.0.0.1:18789`) con sesiones persistentes y optimizaciones de contexto por turnos. Como fallback de bajo nivel y contingencia, MILO ejecuta `Antigravity CLI` (renombrado internamente en la telemetría como **Vulcan**) vía `subprocess.run` con el flag `--dangerously-skip-permissions` para ejecución autónoma sin bloqueos.
 *   **Síntesis y Procesamiento de Voz:** Usa un binario local estático de `ffmpeg` (instalado en `.venv/bin/`) para transcodificación de audio. Cuenta con autodetección robusta de formatos de contenedor (.webm, .ogg, .wav, .mp3, .m4a) a partir de bytes mágicos y tipo MIME, control estricto de errores de FFmpeg y limpieza garantizada de archivos temporales. `gTTS` se mantiene como fallback para la síntesis de voz.
 
 ### Frontend
@@ -68,11 +69,11 @@ El sistema cuenta con un registro centralizado (`TOOL_REGISTRY`) con las siguien
 
 ---
 
-## 5. Módulos Avanzados (MILO V2)
+## 5. Módulos Avanzados (MILO V3)
 
-*   **Proactividad (`src/services/proactive_engine.py`):** Un motor que corre al iniciar sesión (endpoint `/session/greeting`). Analiza la base de datos de SQLite y el FileSystem para generar un mensaje espontáneo tipo: *"Mientras no estabas, ocurrieron 3 errores y tienes 1 tarea pendiente"*.
+*   **Proactividad (`src/services/proactive_engine.py`):** Un motor que corre al iniciar sesión (endpoint `/session/greeting`). Analiza SQLite, el FileSystem y la salud del daemon de OpenClaw, generando un mensaje proactivo. Alerta al usuario si el daemon de orquestación primario está caído.
 *   **Creador de Skills Autónomo (`src/services/skill_creator.py`):** Un observador que detecta patrones en las tareas solicitadas. Si el usuario pide lo mismo más de *N* veces, MILO autogenera un archivo `.agents/skills/<nombre>/SKILL.md` documentando cómo hacerlo mejor la próxima vez.
-*   **Circuit Breaker y Resiliencia (`src/services/circuit_breaker.py`):** Patrón que bloquea el uso de herramientas si estas fallan consecutivamente, evitando bucles infinitos de la IA. Si el motor falla por cuotas (`RESOURCE_EXHAUSTED 429`), las peticiones se encolan en la base de datos (Background Task Queue).
+*   **Circuit Breaker y Resiliencia (`src/services/circuit_breaker.py`):** Patrón que bloquea el uso de herramientas si estas fallan consecutivamente. Habilitados límites de tolerancia diferenciados por motor: OpenClaw (falla rápido: `threshold=2`, `cooldown_minutes=3`) y Vulcan (tolerancia a cuota 429: `threshold=3`, `cooldown_minutes=30`). Si ambos motores fallan, las peticiones se encolan en SQLite (Background Task Queue).
 
 ---
 
@@ -88,6 +89,6 @@ El sistema cuenta con un registro centralizado (`TOOL_REGISTRY`) con las siguien
 source .venv/bin/activate
 # Iniciar Servidor (Host en http://localhost:8000)
 python -m src.main
-# Pruebas Unitarias (55/55 pasando)
+# Pruebas Unitarias (58/58 pasando)
 python -m pytest tests/
 ```

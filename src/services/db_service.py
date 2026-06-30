@@ -54,6 +54,18 @@ def init_db():
     )
     """)
     
+    # 4. Chat History Table (for session persistence and context trimming)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS chat_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        summary TEXT,
+        timestamp TEXT NOT NULL
+    )
+    """)
+    
     conn.commit()
     conn.close()
 
@@ -195,6 +207,59 @@ def increment_task_attempts(task_id: int):
     cursor.execute(
         "UPDATE task_queue SET attempts = attempts + 1 WHERE id = ?",
         (task_id,)
+    )
+    conn.commit()
+    conn.close()
+
+# --- HELPER FUNCTIONS FOR CHAT HISTORY & CONTEXT ---
+
+def add_chat_message(session_id: str, role: str, content: str, summary: str = None) -> int:
+    """Insert a chat message into history."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO chat_history (session_id, role, content, summary, timestamp) VALUES (?, ?, ?, ?, ?)",
+        (session_id, role, content, summary, datetime.now().isoformat())
+    )
+    msg_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return msg_id
+
+def get_chat_history(session_id: str, limit: int = 10) -> list:
+    """Retrieve the last N chat messages of a session in chronological order."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, role, content, summary FROM chat_history WHERE session_id = ? ORDER BY id DESC LIMIT ?",
+        (session_id, limit)
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    # Reverse to keep chronological order
+    return [{"id": r["id"], "role": r["role"], "content": r["content"], "summary": r["summary"]} for r in reversed(rows)]
+
+def get_last_summary(session_id: str) -> dict:
+    """Get the latest cached summary for the session."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, summary FROM chat_history WHERE session_id = ? AND summary IS NOT NULL ORDER BY id DESC LIMIT 1",
+        (session_id,)
+    )
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return {"id": row["id"], "summary": row["summary"]}
+    return {"id": 0, "summary": None}
+
+def update_message_summary(msg_id: int, summary: str):
+    """Update the summary column for a specific message."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE chat_history SET summary = ? WHERE id = ?",
+        (summary, msg_id)
     )
     conn.commit()
     conn.close()

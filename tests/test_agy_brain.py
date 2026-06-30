@@ -26,25 +26,27 @@ def setup_and_teardown_db():
 
 @patch("requests.post")
 def test_agy_brain_ask_success(mock_post):
-    # Setup mock for OpenClaw gateway (primary engine)
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {
-        "choices": [
-            {
-                "message": {
-                    "content": "Respuesta de OpenClaw"
-                }
-            }
-        ]
+    # Setup mock for triage (returns SIMPLE)
+    mock_triage_resp = MagicMock()
+    mock_triage_resp.status_code = 200
+    mock_triage_resp.json.return_value = {
+        "choices": [{"message": {"content": "SIMPLE"}}]
     }
-    mock_post.return_value = mock_response
+    
+    # Setup mock for chat response
+    mock_chat_resp = MagicMock()
+    mock_chat_resp.status_code = 200
+    mock_chat_resp.json.return_value = {
+        "choices": [{"message": {"content": "Respuesta de OpenClaw"}}]
+    }
+    
+    mock_post.side_effect = [mock_triage_resp, mock_chat_resp]
 
     brain = AgyBrain(".")
     response = brain.ask("Hola")
 
     assert response == "Respuesta de OpenClaw"
-    mock_post.assert_called_once()
+    assert mock_post.call_count == 2
     
     # Active engine should be logged as openclaw
     active = get_tool_failure_status("active_engine")["disabled_until"]
@@ -53,7 +55,7 @@ def test_agy_brain_ask_success(mock_post):
 @patch("subprocess.run")
 @patch("requests.post")
 def test_agy_brain_ask_fallback_to_vulcan(mock_post, mock_run):
-    # Mock OpenClaw failing (e.g. gateway down, raising ConnectionError)
+    # Mock OpenClaw failing on the first call (triage)
     mock_post.side_effect = requests.exceptions.ConnectionError("Connection refused")
 
     # Setup mock for Vulcan (agy CLI) succeeding
@@ -66,8 +68,8 @@ def test_agy_brain_ask_fallback_to_vulcan(mock_post, mock_run):
     response = brain.ask("Hola")
 
     assert response == "Respuesta de Vulcan"
-    mock_post.assert_called_once()
-    mock_run.assert_called_once()
+    assert mock_post.call_count == 2
+    assert mock_run.call_count == 2
 
     # Verify failure recorded for openclaw
     openclaw_status = get_tool_failure_status("openclaw")

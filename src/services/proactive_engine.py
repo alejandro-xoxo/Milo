@@ -23,22 +23,24 @@ RECENT_FILES_SCAN_DIR = "src/"     # Directorio base para escanear archivos modi
 
 
 def gather_signals() -> dict:
-    """Recopila señales del entorno: errores no resueltos, tareas pendientes y
-    archivos modificados recientemente.
+    """Recopila señales del entorno: errores no resueltos, tareas pendientes,
+    archivos modificados recientemente y estado de salud de OpenClaw.
 
     Returns:
-        dict con claves 'unresolved_errors', 'pending_tasks' y 'recent_files'.
+        dict con las señales correspondientes.
     """
     signals = {
         "unresolved_errors": _get_unresolved_errors(),
         "pending_tasks": _get_pending_tasks(),
         "recent_files": _get_recently_modified_files(),
+        "openclaw_healthy": _check_openclaw_health(),
     }
     logger.info(
-        "Señales recopiladas: %d errores, %d tareas, %d archivos recientes",
+        "Señales recopiladas: %d errores, %d tareas, %d archivos recientes, OpenClaw healthy: %s",
         len(signals["unresolved_errors"]),
         len(signals["pending_tasks"]),
         len(signals["recent_files"]),
+        signals["openclaw_healthy"],
     )
     return signals
 
@@ -51,6 +53,7 @@ def evaluate_triggers(signals: dict) -> list[dict]:
         - Si hay >= ERROR_ALERT_THRESHOLD errores no resueltos → alerta de errores.
         - Si hay tareas pendientes con más de TASK_STALE_HOURS horas → recordatorio.
         - Si hay archivos modificados recientemente → informe de actividad.
+        - Si OpenClaw está caído o inaccesible → advertencia de caída de orquestador.
 
     Args:
         signals: diccionario devuelto por gather_signals().
@@ -106,6 +109,17 @@ def evaluate_triggers(signals: dict) -> list[dict]:
             "detail": (
                 f"Se detectaron {len(recent)} archivo(s) modificados "
                 f"en las últimas {RECENT_FILES_HOURS}h."
+            ),
+        })
+
+    # --- Regla 4: Alerta si OpenClaw está caído ---
+    if not signals.get("openclaw_healthy", True):
+        triggers.append({
+            "type": "openclaw_offline",
+            "severity": "medium",
+            "detail": (
+                "El servidor primario de orquestación (OpenClaw) está offline. "
+                "MILO operará temporalmente usando solo Vulcan (de respaldo)."
             ),
         })
 
@@ -264,4 +278,19 @@ def _is_stale_task(created_at: str | None, threshold_hours: int) -> bool:
         created_dt = datetime.fromisoformat(created_at)
         return datetime.now() - created_dt > timedelta(hours=threshold_hours)
     except (ValueError, TypeError):
+        return False
+
+def _check_openclaw_health() -> bool:
+    """Verifica si el daemon local de OpenClaw está en ejecución y accesible."""
+    import requests
+    url = os.getenv("OPENCLAW_URL", "http://127.0.0.1:18789")
+    token = os.getenv("OPENCLAW_TOKEN", "")
+    headers = {}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    try:
+        response = requests.get(url, headers=headers, timeout=1.0)
+        # Si logramos conectar y responde (incluso 404), está levantado
+        return True
+    except Exception:
         return False
