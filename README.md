@@ -1,87 +1,161 @@
-# MILO — Asistente Personal Autónomo (MVP de Texto)
+# MILO — Asistente Personal Autónomo (V2)
 
-Este es el Backend MVP de **MILO**, diseñado para funcionar 24/7 de forma eficiente y económica en servidores de la nube gratuita (ej. Oracle Cloud, Fly.io, etc.), protegiendo el hardware local y minimizando costos al consumir la API de Gemini (Google AI Studio).
-
----
-
-## 🏗️ Arquitectura y Estructura
-
-El backend está desarrollado con **FastAPI** (Python 3.10+) e integra la API de Gemini (SDK oficial `google-genai`) utilizando **Function Calling (Llamado a funciones)** en un ciclo manual para proveer herramientas del sistema (lectura de archivos, consulta de clima, etc.) al asistente.
-
-```
-Milo/
-├── src/
-│   ├── config.py           # Carga de variables de entorno (.env)
-│   ├── main.py             # Servidor FastAPI y endpoints
-│   ├── services/
-│   │   └── gemini_service.py # Orquestación del LLM y bucle de tools
-│   └── tools/              # Registro de herramientas
-│       ├── weather.py      # Clima ficticio (Mock tool)
-│       ├── file_reader.py  # Lector de archivos del espacio de trabajo
-│       └── list_dir.py     # Lista archivos del proyecto recursivamente
-├── .env.example
-├── .gitignore
-├── requirements.txt
-└── README.md
-```
+**MILO** es un asistente personal autónomo y resiliente (estilo Jarvis) diseñado para operar de forma eficiente, económica y persistente. Cuenta con una interfaz web interactiva que soporta conversación por texto y por voz, y está diseñado para funcionar 24/7 en servidores o localmente protegiendo el hardware y optimizando los costos.
 
 ---
 
-## 🚀 Setup & Ejecución Local
+## 📸 Galería de la Interfaz
 
-### 1. Variables de Entorno
-Copia el archivo `.env.example` como `.env` e ingresa tu API Key de Gemini obtenida de [Google AI Studio](https://aistudio.google.com/):
+Aquí puedes ver capturas de pantalla de la interfaz interactiva de MILO y su avatar 3D:
+
+![Interfaz de MILO](img/image.png)
+
+![Detalle de Ejecución y Telemetría](img/image%20copy.png)
+
+---
+
+## 🏗️ ¿Qué es MILO?
+
+MILO es mucho más que un simple bot de chat. Es un orquestador inteligente que integra capacidades de razonamiento, ejecución de herramientas locales y síntesis de voz interactiva en tiempo real. Sus principales características incluyen:
+
+*   **Arquitectura de Doble Motor ("Zero API Keys")**:
+    1.  **OpenClaw Gateway (Motor Principal)**: Orquestador local multi-proveedor que maneja y distribuye las consultas al motor configurado.
+    2.  **Vulcan CLI / `agy` (Motor de Respaldo)**: Ejecución local autenticada con la cuenta de Google del usuario, sirviendo como fallback automático de seguridad.
+*   **Avatar Sensorial 3D Interactivo**: Desarrollado con `Three.js`, presenta un núcleo tridimensional dinámico con físicas interactivas y deformación de vértices que reacciona a los estados de MILO:
+    *   ⚪ **Inactivo (Blanco)**: Ondulación suave y respiración 3D.
+    *   🟢 **Escuchando (Azul Verdoso)**: Movimiento vibratorio en espera de audio.
+    *   🟣 **Procesando (Púrpura)**: Rotación acelerada y oscilación inquieta.
+    *   🔊 **Hablando (Pulsación Reactiva)**: Expansión y deformación en tiempo real según el volumen del audio de respuesta (mediante `Web Audio API`).
+*   **Procesamiento de Voz Premium**: Transcodificación de audio en tiempo real usando un binario local de `ffmpeg` con detección inteligente de contenedores de audio (.webm, .ogg, .wav, .mp3, etc.) y síntesis por voz (`gTTS` como fallback).
+*   **Persistencia y Cola de Tareas**: Base de datos SQLite integrada para registrar incidentes, encolar tareas asíncronas en segundo plano, manejar estados de herramientas y autogenerar nuevas habilidades (*Skills*).
+*   **Motor de Proactividad**: Generación automática de saludos e informes al iniciar sesión (ej. *"Mientras no estabas, ocurrieron 3 errores y tienes 1 tarea pendiente"*).
+*   **Circuit Breaker y Resiliencia**: Mecanismo de seguridad que bloquea herramientas si fallan consecutivamente y encola peticiones en caso de saturación o límite de cuota de las APIs (Error 429).
+
+---
+
+## 🚀 Guía de Inicio Rápido e Instalación
+
+Sigue las instrucciones según tu sistema operativo para configurar y ejecutar MILO localmente.
+
+### 📋 Requisitos Previos Comunes
+1. Disponer de **Python 3.10 o superior** instalado.
+2. Contar con una API Key de Gemini desde [Google AI Studio](https://aistudio.google.com/) (si configuras claves directamente) o tener configurado OpenClaw/Antigravity CLI.
+
+---
+
+### 🐧 Instalación en Linux
+
+Abre tu terminal y ejecuta los siguientes comandos paso a paso:
 
 ```bash
+# 1. Navegar al directorio del proyecto
+cd Milo
+
+# 2. Configurar variables de entorno copiando el ejemplo
 cp .env.example .env
-```
+# Nota: Abre y edita el archivo .env para configurar tus claves y puertos
 
-Edita `.env` y rellena:
-```env
-GEMINI_API_KEY=tu_api_key_aqui
-```
-
-### 2. Dependencias y Entorno Virtual
-Si ya se crearon las carpetas con Antigravity, puedes inicializar el entorno virtual e instalar las dependencias:
-
-```bash
+# 3. Crear el entorno virtual de Python
 python3 -m venv .venv
+
+# 4. Activar el entorno virtual
 source .venv/bin/activate
+
+# 5. Actualizar pip e instalar dependencias del proyecto
+pip install --upgrade pip
 pip install -r requirements.txt
-```
 
-### 3. Ejecutar el Servidor FastAPI
-Inicia el servidor de desarrollo (con recarga en vivo activa):
-
-```bash
+# 6. Iniciar el servidor de FastAPI
 python -m src.main
-# O usando uvicorn directamente:
-uvicorn src.main:app --reload
 ```
 
-El servidor estará disponible en [http://localhost:8000](http://localhost:8000).
+---
+
+### 🪟 Instalación en Windows
+
+Abre **PowerShell** o el **Símbolo del Sistema (CMD)** en la carpeta del proyecto:
+
+#### Opción A: Usando PowerShell
+```powershell
+# 1. Configurar variables de entorno copiando el ejemplo
+Copy-Item .env.example .env
+# Nota: Edita el archivo .env con tu editor favorito (ej. Notepad) para colocar tus llaves.
+
+# 2. Crear el entorno virtual de Python
+python -m venv .venv
+
+# 3. Activar el entorno virtual
+.venv\Scripts\Activate.ps1
+
+# 4. Actualizar pip e instalar las dependencias
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+
+# 5. Ejecutar el servidor de FastAPI
+python -m src.main
+```
+
+#### Opción B: Usando Símbolo del Sistema (CMD)
+```cmd
+:: 1. Configurar variables de entorno copiando el ejemplo
+copy .env.example .env
+:: Nota: Configura tu archivo .env con tus llaves antes de continuar.
+
+:: 2. Crear el entorno virtual de Python
+python -m venv .venv
+
+:: 3. Activar el entorno virtual
+.venv\Scripts\activate.bat
+
+:: 4. Actualizar pip e instalar las dependencias
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+
+:: 5. Ejecutar el servidor de FastAPI
+python -m src.main
+```
+
+---
+
+## 🎮 Guía de Inicio y Uso
+
+Una vez que el servidor se esté ejecutando (`python -m src.main`), podrás interactuar con MILO de las siguientes formas:
+
+1.  **Interfaz Web**: Abre tu navegador web y entra a [http://localhost:8000](http://localhost:8000).
+    *   **Conversación por Voz (Push-to-Talk)**: Presiona y mantén presionada la **Barra Espaciadora** (`Spacebar`) o haz clic en el botón del micrófono para hablarle a MILO. Suelta para enviar el audio.
+    *   **Avatar Interactivo**: Pasa el cursor por el avatar 3D para ver cómo las partículas esquivan dinámicamente el mouse.
+    *   **Consola de Telemetría**: Despliega el panel lateral para ver en tiempo real qué herramientas está usando y el estado de la cola de tareas.
+2.  **Endpoints del API**:
+    *   **Health Check**: Verifica el estado del servicio en `GET /health`.
+    *   **Chat Directo**: Envía peticiones POST estructuradas a `/chat`.
 
 ---
 
 ## 📡 Endpoints del API
 
 ### 1. Health Check
-Verifica que el servicio esté arriba:
-*   **Método:** `GET`
-*   **Ruta:** `/health`
-*   **Respuesta:** `{"status": "ok", "app": "MILO API"}`
+Verifica que el servicio esté activo y respondiendo correctamente.
+*   **Método**: `GET`
+*   **Ruta**: `/health`
+*   **Respuesta**:
+    ```json
+    {
+      "status": "ok",
+      "app": "MILO API"
+    }
+    ```
 
 ### 2. Interacción con MILO (Chat)
-Envía un prompt a MILO para que razone y ejecute herramientas:
-*   **Método:** `POST`
-*   **Ruta:** `/chat`
-*   **Cuerpo (JSON):**
+Envía un prompt de texto para que MILO analice y ejecute herramientas localmente de forma autónoma.
+*   **Método**: `POST`
+*   **Ruta**: `/chat`
+*   **Cuerpo (JSON)**:
     ```json
     {
       "prompt": "Clima en Madrid y lee el archivo MILO_plan.md por favor"
     }
     ```
-*   **Respuesta (JSON):**
+*   **Respuesta (JSON)**:
     ```json
     {
       "response": "El clima actual en Madrid es Partly Cloudy con 19°C... El archivo MILO_plan.md detalla el plan técnico...",
@@ -105,11 +179,9 @@ Envía un prompt a MILO para que razone y ejecute herramientas:
 Para añadir herramientas adicionales a MILO:
 
 1.  Crea un nuevo archivo en `src/tools/` (ej. `src/tools/web_search.py`).
-2.  Define una función de Python con **anotaciones de tipo explícitas** (type hints) y un **docstring detallado** (el docstring es el que Gemini utiliza para entender qué hace tu herramienta y qué parámetros necesita).
+2.  Define una función de Python con **anotaciones de tipo explícitas** (type hints) y un **docstring detallado** (el docstring es utilizado por el LLM para entender cuándo y cómo usar la herramienta).
 3.  Regístrala en `src/services/gemini_service.py`:
     *   Impórtala al inicio del archivo.
     *   Agrégala al diccionario `TOOL_REGISTRY`.
 
-*¡Y listo! Gemini la detectará automáticamente en la siguiente llamada.*
-# Milo
-# Milo
+*¡Listo! MILO detectará e integrará automáticamente la herramienta en la siguiente consulta.*

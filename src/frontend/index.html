@@ -610,6 +610,7 @@
         // RENDERER & SCENE
         // ═══════════════════════════════════════════════════════
         const canvas = document.getElementById('bg-canvas');
+        const avatarContainer = document.getElementById('milo-avatar');
         const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setClearColor(0x000000, 0);
@@ -618,7 +619,7 @@
         scene.fog = new THREE.FogExp2(0x050505, 0.012);
 
         const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 0, 12);
+        camera.position.set(0, 0, 8.5);
 
         // ═══════════════════════════════════════════════════════
         // POST-PROCESSING
@@ -661,10 +662,14 @@
                     float displacement = strength / (1.0 + dist * dist * 8.0);
                     displacement *= sin(uTime * 0.4) * 0.12 + 0.88;
                     vec2 displacedUv = vUv - normalize(diff + 0.001) * displacement * dist;
-                    vec4 c = texture2D(tDiffuse, displacedUv);
-                    c += texture2D(tDiffuse, displacedUv + vec2(0.0008, 0.0));
-                    c += texture2D(tDiffuse, displacedUv - vec2(0.0008, 0.0));
-                    gl_FragColor = c / 3.0;
+                    
+                    // High-fidelity chromatic aberration: diagonal color dispersion
+                    // Green channel remains perfectly sharp to maintain high-contrast crispness (nítida)
+                    float r = texture2D(tDiffuse, displacedUv + vec2(0.001, 0.0006)).r;
+                    float g = texture2D(tDiffuse, displacedUv).g;
+                    float b = texture2D(tDiffuse, displacedUv - vec2(0.001, -0.0006)).b;
+                    float a = texture2D(tDiffuse, displacedUv).a;
+                    gl_FragColor = vec4(r, g, b, a);
                 }
             `
         };
@@ -752,13 +757,40 @@
             fragmentShader: `
                 uniform float absorptionStrength; uniform float time;
                 varying vec3 vPosition; varying vec3 vNormal;
+
+                float hash(vec2 p) {
+                    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+                }
+
+                float noise(vec2 p) {
+                    vec2 i = floor(p);
+                    vec2 f = fract(p);
+                    vec2 u = f * f * (3.0 - 2.0 * f);
+                    return mix(mix(hash(i + vec2(0.0,0.0)), hash(i + vec2(1.0,0.0)), u.x),
+                               mix(hash(i + vec2(0.0,1.0)), hash(i + vec2(1.0,1.0)), u.x), u.y);
+                }
+
                 void main() {
                     float dist = length(vPosition);
                     float edge = smoothstep(0.85, 1.0, dist);
-                    float halo = pow(max(0.0, dot(normalize(vNormal), vec3(0.0, 0.0, 1.0))), 3.0);
-                    float glow = edge * halo * 0.08;
+
+                    // Swirling coordinate mapping on the spherical surface
+                    vec3 norm = normalize(vNormal);
+                    float theta = atan(norm.y, norm.x);
+                    float phi = acos(norm.z);
+                    
+                    // Create slow swirling gravitational wave pattern
+                    float ripple = noise(vec2(theta * 3.0 + time * 0.5, phi * 5.0 - time * 0.2));
+                    float ripple2 = noise(vec2(theta * 6.0 - time * 0.4, phi * 2.0 + time * 0.3));
+                    float wave = (ripple + ripple2) * 0.5;
+
+                    float halo = pow(max(0.0, dot(norm, vec3(0.0, 0.0, 1.0))), 3.0);
+                    // Add rippling energy to the edge glow
+                    float glow = edge * halo * (0.08 + wave * 0.10);
+
+                    // Event horizon stays black but gets a highly energetic refracting edge
                     float alpha = clamp(1.0 - glow * 0.3 + absorptionStrength * 0.05, 0.9, 1.0);
-                    gl_FragColor = vec4(vec3(glow), alpha);
+                    gl_FragColor = vec4(vec3(glow * 0.5), alpha);
                 }
             `,
             transparent: true, depthWrite: true
@@ -770,7 +802,7 @@
 
         // Einstein ring glow
         const glowMat = new THREE.MeshBasicMaterial({
-            color: 0xaaaaaa, transparent: true, opacity: 0.22,
+            color: 0xaaaaaa, transparent: true, opacity: 0.12,
             blending: THREE.AdditiveBlending, side: THREE.BackSide
         });
         coreGroup.add(new THREE.Mesh(new THREE.SphereGeometry(1.06, 64, 64), glowMat));
@@ -778,11 +810,11 @@
 
         // ── PHOTON RING — thin torus at r ≈ 1.5 Schwarzschild ──
         const photonRingMat = new THREE.MeshBasicMaterial({
-            color: 0xffffff, transparent: true, opacity: 0.45,
+            color: 0xffffff, transparent: true, opacity: 0.30,
             blending: THREE.AdditiveBlending, side: THREE.DoubleSide
         });
         const photonRing = new THREE.Mesh(
-            new THREE.TorusGeometry(1.5, 0.065, 24, 128),
+            new THREE.TorusGeometry(1.5, 0.035, 24, 128),
             photonRingMat
         );
         photonRing.name = 'photonRing';
@@ -790,62 +822,114 @@
         coreGroup.add(photonRing);
 
         // ── ACCRETION DISK — procedural texture + toroidal mesh ──
-        function createAccretionDiskTexture(size) {
-            const c = document.createElement('canvas');
-            c.width = c.height = size;
-            const ctx = c.getContext('2d');
-            const img = ctx.createImageData(size, size);
-            const data = img.data;
-            const cx = size/2, maxR = size/2;
-
-            function noise(x, y) {
-                const xi = Math.floor(x), yi = Math.floor(y);
-                const xf = x-xi, yf = y-yi;
-                const h = (a,b) => { const v = Math.sin(a*127.1+b*311.7)*43758.5453; return v-Math.floor(v); };
-                const a=h(xi,yi), b=h(xi+1,yi), cc=h(xi,yi+1), d=h(xi+1,yi+1);
-                const ux=xf*xf*(3-2*xf), uy=yf*yf*(3-2*yf);
-                return a+(b-a)*ux+(cc-a)*uy+(a-b-cc+d)*ux*uy;
-            }
-
-            for (let i = 0; i < size; i++) for (let j = 0; j < size; j++) {
-                const dx=(i-cx)/maxR, dy=(j-cx)/maxR;
-                const r=Math.sqrt(dx*dx+dy*dy), theta=Math.atan2(dy,dx);
-                const idx=(j*size+i)*4;
-                if (r < 0.28 || r > 1.02) { data[idx+3]=0; continue; }
-                const nr=(r-0.28)/0.74;
-                // Gradiente radial agresivo: borde interno muy brillante, cae rápido
-                const density=Math.exp(-nr*5.5);
-                // Turbulencia marcada: bandas angulares + remolinos radiales
-                const turb1=noise(theta*5+r*10, r*7)*0.55;
-                const turb2=Math.pow(Math.abs(Math.sin(theta*9+r*15)), 2.0)*0.20;
-                const turb=turb1+turb2;
-                // Contraste duro: elevar al cuadrado para zonas oscuras más negras
-                const raw=Math.min(1, density + turb*(1.2-nr));
-                const intensity=Math.pow(raw, 1.8); // gamma para más contraste
-                const bright=Math.round(intensity*255);
-                data[idx]=bright; data[idx+1]=bright; data[idx+2]=bright;
-                data[idx+3]=Math.round(intensity*190);
-            }
-            ctx.putImageData(img, 0, 0);
-            return new THREE.CanvasTexture(c);
-        }
-
-        const diskTexture = createAccretionDiskTexture(512);
-
         const tiltedGroup = new THREE.Group();
         tiltedGroup.rotation.x = Math.PI / 5;
         tiltedGroup.rotation.y = Math.PI / 10;
         coreGroup.add(tiltedGroup);
 
-        const diskMat = new THREE.MeshStandardMaterial({
-            map: diskTexture, emissiveMap: diskTexture,
-            emissive: new THREE.Color(0xffffff), emissiveIntensity: 0.38,
-            metalness: 0.0, roughness: 0.9,
-            transparent: true, opacity: 0.72,
-            side: THREE.DoubleSide, blending: THREE.NormalBlending, depthWrite: false
+        // MILO V2 Custom GPU Procedural Accretion Disk Shader with Keplerian Shear Flow
+        const diskMat = new THREE.ShaderMaterial({
+            uniforms: {
+                uTime: { value: 0 },
+                uColor: { value: new THREE.Color(0xffffff) },
+                uEmissiveIntensity: { value: 0.28 },
+                uAudioStrength: { value: 0.0 }
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                varying vec3 vNormal;
+                varying vec3 vViewPosition;
+                void main() {
+                    vUv = uv;
+                    vNormal = normalize(normalMatrix * normal);
+                    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                    vViewPosition = -mvPosition.xyz;
+                    gl_Position = projectionMatrix * mvPosition;
+                }
+            `,
+            fragmentShader: `
+                uniform float uTime;
+                uniform vec3 uColor;
+                uniform float uEmissiveIntensity;
+                uniform float uAudioStrength;
+                varying vec2 vUv;
+                varying vec3 vNormal;
+                varying vec3 vViewPosition;
+
+                float hash(vec2 p) {
+                    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+                }
+
+                float noise(vec2 p) {
+                    vec2 i = floor(p);
+                    vec2 f = fract(p);
+                    vec2 u = f * f * (3.0 - 2.0 * f);
+                    return mix(mix(hash(i + vec2(0.0,0.0)), hash(i + vec2(1.0,0.0)), u.x),
+                               mix(hash(i + vec2(0.0,1.0)), hash(i + vec2(1.0,1.0)), u.x), u.y);
+                }
+
+                float fbm(vec2 p) {
+                    float v = 0.0;
+                    float a = 0.5;
+                    vec2 shift = vec2(100.0);
+                    mat2 rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.5));
+                    for (int i = 0; i < 3; ++i) {
+                        v += a * noise(p);
+                        p = rot * p * 2.0 + shift;
+                        a *= 0.5;
+                    }
+                    return v;
+                }
+
+                void main() {
+                    // Torus minor angle (wraps around the tube cross-section)
+                    float minorAngle = vUv.y * 6.2831853;
+                    
+                    // Approximate distance from the singularity (major radius + minor radius offset)
+                    float radius = 2.8 + 0.85 * cos(minorAngle);
+
+                    // Keplerian shear flow velocity (faster gas flow nearer to Schwarzschild radius)
+                    float speed = 2.4 / sqrt(radius);
+                    float flow = uTime * speed;
+
+                    // procedurally flow noise along the accretion disk major circumference
+                    vec2 noiseUv = vec2(vUv.x * 14.0 - flow, vUv.y * 3.0 + sin(vUv.x * 6.2831853 + uTime * 0.6) * 0.4);
+                    float n = fbm(noiseUv);
+                    
+                    // Enhance the noise contrast to create wispy, turbulent gas structures
+                    n = smoothstep(0.2, 0.8, n);
+                    n = pow(n, 2.2) * 1.8;
+
+                    // Fade out boundaries at minor radius limits to look volumetric
+                    float fade = sin(vUv.y * 3.14159265);
+                    fade = pow(fade, 1.4);
+
+                    // Intensity is noise scaled by emissive controls & audio pulse
+                    float intensity = n * fade * (uEmissiveIntensity + uAudioStrength * 0.40);
+
+                    // Hot glowing inner rim effect
+                    float innerHot = pow(max(0.0, -cos(minorAngle)), 4.0) * fade * 0.18;
+                    intensity += innerHot * 1.2;
+
+                    intensity = pow(intensity, 1.1);
+
+                    // Gaseous high-contrast color blend
+                    vec3 finalColor = uColor * (0.15 + intensity * 1.35);
+                    
+                    // Transparent and volumetric gas opacity with a low base opacity
+                    float alpha = 0.02 + smoothstep(0.08, 0.45, intensity) * 0.42;
+
+                    gl_FragColor = vec4(finalColor, alpha);
+                }
+            `,
+            transparent: true,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+            blending: THREE.AdditiveBlending
         });
         const accretionDisk = new THREE.Mesh(new THREE.TorusGeometry(2.8, 0.85, 48, 128), diskMat);
         accretionDisk.name = 'disk';
+        accretionDisk.scale.set(1, 1, 0.05); // Flatten the torus to make it a flat disk
         tiltedGroup.add(accretionDisk);
 
         // Particle ring overlay (Keplerian)
@@ -875,7 +959,7 @@
         ringGeo.attributes.position.usage = THREE.DynamicDrawUsage;
 
         const ringMat = new THREE.PointsMaterial({
-            size:0.07, vertexColors:true, transparent:true, opacity:0.42,
+            size:0.05, vertexColors:true, transparent:true, opacity:0.40,
             blending:THREE.AdditiveBlending, sizeAttenuation:true, depthWrite:false
         });
         const accretionRing = new THREE.Points(ringGeo, ringMat);
@@ -943,7 +1027,7 @@
         haloGeo.attributes.position.usage = THREE.DynamicDrawUsage;
 
         const haloMat = new THREE.PointsMaterial({
-            size:0.09, vertexColors:true, transparent:true, opacity:0.7,
+            size:0.065, vertexColors:true, transparent:true, opacity:0.45,
             blending:THREE.AdditiveBlending, sizeAttenuation:true, depthWrite:false
         });
         const lensedHalo = new THREE.Points(haloGeo, haloMat);
@@ -1070,7 +1154,7 @@
         // ═══════════════════════════════════════════════════════
         // ZOOM CONTROLLER
         // ═══════════════════════════════════════════════════════
-        const zoomConfig = { current:12, target:12, speed:0.04 };
+        const zoomConfig = { current:8.5, target:8.5, speed:0.05 };
 
         // ═══════════════════════════════════════════════════════
         // FPS MONITOR (adaptive quality)
@@ -1081,8 +1165,7 @@
             const now = performance.now();
             if (now - fpsLastTime >= 1000) {
                 fpsCount = fpsFrames; fpsFrames = 0; fpsLastTime = now;
-                if (fpsCount < 45) { bloomPass.strength = Math.max(1.2, bloomPass.strength*0.85); lensingPass.enabled=false; }
-                else if (fpsCount >= 55) lensingPass.enabled = true;
+                // Mantener siempre el post-procesamiento activo a máxima calidad para evitar que la interfaz se desvanezca u opaque
             }
         }
 
@@ -1095,11 +1178,11 @@
         let processingWobble=0, bloomTargetStrength=0.45;
 
         const stateCfg = {
-            idle:       { ring:0xffffff, halo:0xffffff, glow:0x888888, bloom:0.40, jetOp:0.0,  zoom:12, lensStr:0.045 },
-            processing: { ring:0xffffff, halo:0xdddddd, glow:0x888888, bloom:0.90, jetOp:0.85, zoom:8,  lensStr:0.065 },
-            speaking:   { ring:0xffffff, halo:0xffffff, glow:0xaaaaaa, bloom:1.10, jetOp:0.0,  zoom:10, lensStr:0.045 },
-            listening:  { ring:0xcccccc, halo:0xcccccc, glow:0x666666, bloom:0.70, jetOp:0.0,  zoom:11, lensStr:0.032 },
-            error:      { ring:0xff3333, halo:0xff3333, glow:0xff3333, bloom:1.20, jetOp:0.0,  zoom:13, lensStr:0.045 }
+            idle:       { ring:0xffffff, halo:0xffffff, glow:0x888888, bloom:0.35, jetOp:0.08,  zoom:8.5, lensStr:0.045 },
+            processing: { ring:0xc026d3, halo:0xc026d3, glow:0xc026d3, bloom:0.55, jetOp:0.40,  zoom:7.0, lensStr:0.060 },
+            speaking:   { ring:0xffffff, halo:0xffffff, glow:0xaaaaaa, bloom:0.50, jetOp:0.06,  zoom:7.5, lensStr:0.045 },
+            listening:  { ring:0x00e5bc, halo:0x00e5bc, glow:0x00e5bc, bloom:0.30, jetOp:0.05,  zoom:8.0, lensStr:0.035 },
+            error:      { ring:0xff3333, halo:0xff3333, glow:0xff3333, bloom:0.65, jetOp:0.15,  zoom:9.5, lensStr:0.045 }
         };
 
         window.update3DAvatar = function(state, dataArray, avgVol) {
@@ -1119,6 +1202,9 @@
             ringMat.color.setHex(cfg.ring);
             haloMat.color.setHex(cfg.halo);
             glowMat.color.setHex(cfg.glow);
+            if (diskMat.uniforms && diskMat.uniforms.uColor) {
+                diskMat.uniforms.uColor.value.setHex(cfg.ring);
+            }
             bloomTargetStrength  = cfg.bloom;
             teslaTargetOpacity   = cfg.jetOp;
             zoomConfig.target    = cfg.zoom;
@@ -1164,8 +1250,12 @@
                 : 0;
             horizonMat.uniforms.hawkingExpand.value = hoverHawking;
 
-            // Bloom total suavizado sin hover
-            bloomPass.strength += (bloomTargetStrength + dragBloomBoost - bloomPass.strength) * 0.06;
+            // Einstein ring glow slow pulsation
+            glowMat.opacity = 0.08 + Math.sin(elapsed * 2.2) * 0.03;
+
+            // Bloom total suavizado con un pulso en reposo (idle) para darle vida y que no se apague
+            const idleBloomPulse = (currentAvatarState === 'idle') ? Math.sin(elapsed * 2.0) * 0.04 + 0.04 : 0;
+            bloomPass.strength += (bloomTargetStrength + dragBloomBoost + idleBloomPulse - bloomPass.strength) * 0.06;
 
             // ── ROTACIÓN Y MOVIMIENTO CONTINUO (siempre activo) ──
             if (currentAvatarState==='processing' && !isDragging) {
@@ -1206,25 +1296,37 @@
 
             // Photon ring pulsation
             if (currentAvatarState==='processing') {
-                photonRingMat.opacity = 0.35 + Math.sin(elapsed*18)*0.18;
+                photonRingMat.opacity = 0.25 + Math.sin(elapsed*18)*0.08;
             } else if (currentAvatarState==='speaking' && audioDataArray) {
                 const vol = audioDataArray.reduce((a,b)=>a+b,0)/(audioDataArray.length*255);
-                photonRingMat.opacity = 0.22 + vol*0.35;
+                photonRingMat.opacity = 0.20 + vol*0.20;
             } else {
-                photonRingMat.opacity = 0.14 + Math.sin(elapsed*1.8)*0.07;
+                photonRingMat.opacity = 0.15 + Math.sin(elapsed*1.8)*0.04;
             }
             photonRing.rotation.z = elapsed * 0.28;
 
-            // Accretion disk — rotación + perturbaciones
+            // Accretion disk — rotación + perturbaciones procedimentales
             const dSpeed = currentAvatarState==='processing' ? 0.9
                 : currentAvatarState==='speaking' ? 0.55
-                : 0.20;
+                : 0.35; // Slightly faster in idle to feel alive and dynamic
             accretionDisk.rotation.z += dSpeed * dt * 0.6;
-            const pertAmp  = currentAvatarState==='processing' ? 0.35 : 0.10;
-            const pertFreq = currentAvatarState==='processing' ? 3.5  : 1.0;
-            diskMat.emissiveIntensity = (currentAvatarState==='speaking' && audioDataArray)
-                ? 0.32 + audioDataArray.reduce((a,b)=>a+b,0)/(audioDataArray.length*255)*0.45
-                : 0.28 + Math.sin(elapsed*pertFreq)*pertAmp;
+            
+            const pertAmp  = currentAvatarState==='processing' ? 0.35 : 0.12;
+            const pertFreq = currentAvatarState==='processing' ? 3.5  : 1.2;
+            
+            if (diskMat.uniforms) {
+                diskMat.uniforms.uTime.value = elapsed;
+                diskMat.uniforms.uEmissiveIntensity.value = (currentAvatarState==='speaking' && audioDataArray)
+                    ? 0.38 + audioDataArray.reduce((a,b)=>a+b,0)/(audioDataArray.length*255)*0.45
+                    : 0.32 + Math.sin(elapsed*pertFreq)*pertAmp;
+                
+                if (currentAvatarState==='speaking' && audioDataArray) {
+                    const vol = audioDataArray.reduce((a,b)=>a+b,0)/(audioDataArray.length*255);
+                    diskMat.uniforms.uAudioStrength.value = vol;
+                } else {
+                    diskMat.uniforms.uAudioStrength.value = 0.0;
+                }
+            }
 
             // Particle ring physics
             const ringPosAttr = accretionRing.geometry.attributes.position;
@@ -1284,7 +1386,10 @@
                     d.svx*=dfr; d.svy*=dfr; d.svz*=dfr;
                     d.dodgeX+=d.svx*dt; d.dodgeY+=d.svy*dt; d.dodgeZ+=d.svz*dt;
 
-                    ringPosAttr.setXYZ(i, ox + d.dodgeX, oy + d.dodgeY, oz + d.dodgeZ);
+                    // Onda de perturbación sinusoidal 3D para que el disco de partículas parezca fluido y vivo en reposo
+                    const waveRipple = Math.sin(elapsed * 1.5 + d.angle * 3.0) * 0.08;
+                    const radialRipple = Math.cos(elapsed * 1.2 + d.angle * 2.0) * 0.06;
+                    ringPosAttr.setXYZ(i, ox + d.dodgeX + Math.cos(d.angle)*radialRipple, oy + d.dodgeY + waveRipple, oz + d.dodgeZ + Math.sin(d.angle)*radialRipple);
                 }
             }
             ringPosAttr.needsUpdate = true;
@@ -1316,14 +1421,26 @@
                         haloPosAttr.getZ(i)+(Math.random()-0.5)*0.2);
                 } else {
                     d.angle+=d.speed*dt;
-                    const breathe=1.0;
+                    // El halo lensed respira lentamente en ondas simulando lente gravitacional oscilante
+                    const breathe = 1.0 + Math.sin(elapsed * 1.8 + d.angle * 2.0) * 0.08;
                     haloPosAttr.setXYZ(i, Math.cos(d.angle)*d.radius*breathe, Math.sin(d.angle)*d.radius*breathe, d.zOffset);
                 }
             }
             haloPosAttr.needsUpdate = true;
 
             // ── TESLA COIL — rayos zigzag que huyen del ratón ──
-            teslaOpacity += (teslaTargetOpacity - teslaOpacity) * 0.08;
+            // Actividad eléctrica dinámica en todos los estados para mantener la viveza y movimiento extra
+            let targetJetOp = teslaTargetOpacity;
+            if (currentAvatarState === 'idle') {
+                targetJetOp = 0.06 + Math.sin(elapsed * 1.5) * 0.03;
+            } else if (currentAvatarState === 'listening') {
+                targetJetOp = 0.04 + Math.sin(elapsed * 2.0) * 0.02;
+            } else if (currentAvatarState === 'speaking') {
+                targetJetOp = 0.05 + Math.sin(elapsed * 2.5) * 0.02;
+            } else if (currentAvatarState === 'error') {
+                targetJetOp = 0.12 + Math.sin(elapsed * 3.0) * 0.05;
+            }
+            teslaOpacity += (targetJetOp - teslaOpacity) * 0.08;
             teslaMat.opacity = teslaOpacity;
 
             if (teslaOpacity > 0.01) {
@@ -1443,19 +1560,37 @@
             let tScale;
             if (currentAvatarState==='speaking'||currentAvatarState==='listening') tScale=audioScale;
             else if (currentAvatarState==='processing') tScale=1.05+Math.sin(elapsed*5)*0.055;
-            else tScale=1.0+Math.sin(elapsed*1.5)*0.03;
+            else {
+                // Respiración cósmica dual para el estado idle (dos frecuencias superpuestas)
+                tScale = 1.0 + Math.sin(elapsed * 1.2) * 0.035 + Math.sin(elapsed * 2.8) * 0.012;
+            }
             coreGroup.scale.lerp(new THREE.Vector3(tScale,tScale,tScale), 1-Math.exp(-3.5*dt));
+
+            // Dynamic position tracking to align with DOM container
+            let targetXCoord = -4.5;
+            let targetYCoord = 0;
+            const rect = avatarContainer.getBoundingClientRect();
+            if (rect.width > 0) {
+                const ndcX = ((rect.left + rect.width / 2) / window.innerWidth) * 2 - 1;
+                const ndcY = -((rect.top + rect.height / 2) / window.innerHeight) * 2 + 1;
+                const vec = new THREE.Vector3(ndcX, ndcY, 0.5).unproject(camera);
+                const dir = vec.sub(camera.position).normalize();
+                const dist = -camera.position.z / dir.z;
+                const domTargetPos = camera.position.clone().addScaledVector(dir, dist);
+                targetXCoord = domTargetPos.x;
+                targetYCoord = domTargetPos.y;
+            }
 
             // Position drift
             if (currentAvatarState==='error') {
-                coreGroup.position.x=-4.5+(Math.random()-0.5)*0.4;
-                coreGroup.position.y=(Math.random()-0.5)*0.4;
+                coreGroup.position.x = targetXCoord + (Math.random()-0.5)*0.4;
+                coreGroup.position.y = targetYCoord + (Math.random()-0.5)*0.4;
             } else {
-                const dX=currentAvatarState==='processing'?Math.sin(elapsed*3)*0.9:0;
-                const dY=currentAvatarState==='processing'?Math.cos(elapsed*2.4)*0.6:0;
-                const pL=1-Math.exp(-3*dt);
-                coreGroup.position.x+=(-4.5+targetX*1.2+dX-coreGroup.position.x)*pL;
-                coreGroup.position.y+=(-targetY*1.2+dY-coreGroup.position.y)*pL;
+                const dX = currentAvatarState==='processing' ? Math.sin(elapsed*3)*0.9 : 0;
+                const dY = currentAvatarState==='processing' ? Math.cos(elapsed*2.4)*0.6 : 0;
+                const pL = 1-Math.exp(-3*dt);
+                coreGroup.position.x += (targetXCoord + targetX*0.5 + dX - coreGroup.position.x)*pL;
+                coreGroup.position.y += (targetYCoord - targetY*0.5 + dY - coreGroup.position.y)*pL;
             }
 
             // Camera zoom
