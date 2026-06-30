@@ -810,12 +810,18 @@
                 const idx=(j*size+i)*4;
                 if (r < 0.28 || r > 1.02) { data[idx+3]=0; continue; }
                 const nr=(r-0.28)/0.74;
-                const density=Math.exp(-nr*3.2);
-                const turb=noise(theta*4+r*8, r*6)*0.35 + Math.abs(Math.sin(theta*7+r*12))*0.12;
-                const intensity=Math.min(1, density + turb*(1-nr));
+                // Gradiente radial agresivo: borde interno muy brillante, cae rápido
+                const density=Math.exp(-nr*5.5);
+                // Turbulencia marcada: bandas angulares + remolinos radiales
+                const turb1=noise(theta*5+r*10, r*7)*0.55;
+                const turb2=Math.pow(Math.abs(Math.sin(theta*9+r*15)), 2.0)*0.20;
+                const turb=turb1+turb2;
+                // Contraste duro: elevar al cuadrado para zonas oscuras más negras
+                const raw=Math.min(1, density + turb*(1.2-nr));
+                const intensity=Math.pow(raw, 1.8); // gamma para más contraste
                 const bright=Math.round(intensity*255);
                 data[idx]=bright; data[idx+1]=bright; data[idx+2]=bright;
-                data[idx+3]=Math.round(intensity*215);
+                data[idx+3]=Math.round(intensity*190);
             }
             ctx.putImageData(img, 0, 0);
             return new THREE.CanvasTexture(c);
@@ -830,9 +836,9 @@
 
         const diskMat = new THREE.MeshStandardMaterial({
             map: diskTexture, emissiveMap: diskTexture,
-            emissive: new THREE.Color(0xffffff), emissiveIntensity: 0.7,
-            metalness: 0.1, roughness: 0.8,
-            transparent: true, opacity: 0.88,
+            emissive: new THREE.Color(0xffffff), emissiveIntensity: 0.38,
+            metalness: 0.0, roughness: 0.9,
+            transparent: true, opacity: 0.72,
             side: THREE.DoubleSide, blending: THREE.NormalBlending, depthWrite: false
         });
         const accretionDisk = new THREE.Mesh(new THREE.TorusGeometry(2.8, 0.85, 48, 128), diskMat);
@@ -1185,8 +1191,8 @@
             const pertAmp  = currentAvatarState==='processing' ? 0.35 : 0.12;
             const pertFreq = currentAvatarState==='processing' ? 3.5  : 1.2;
             diskMat.emissiveIntensity = (currentAvatarState==='speaking' && audioDataArray)
-                ? 0.5 + audioDataArray.reduce((a,b)=>a+b,0)/(audioDataArray.length*255)*0.6
-                : 0.62 + Math.sin(elapsed*pertFreq)*pertAmp;
+                ? 0.32 + audioDataArray.reduce((a,b)=>a+b,0)/(audioDataArray.length*255)*0.45
+                : 0.30 + Math.sin(elapsed*pertFreq)*pertAmp;
 
             // Particle ring physics
             const ringPosAttr = accretionRing.geometry.attributes.position;
