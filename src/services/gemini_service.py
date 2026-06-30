@@ -75,6 +75,7 @@ def generate_gemini_response(prompt: str) -> dict:
         config=types.GenerateContentConfig(
             tools=tools_list,
             temperature=0.2,
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
             system_instruction=(
                 "You are MILO, a highly advanced personal assistant. "
                 "You have access to tools for listing files, reading files, and checking the weather. "
