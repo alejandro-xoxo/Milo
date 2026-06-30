@@ -1,5 +1,50 @@
 import sys
 import httpx
+import subprocess
+import os
+from gtts import gTTS
+
+def speak(text: str):
+    """Sintetiza la respuesta en audio y la reproduce."""
+    try:
+        import re
+        clean_text = re.sub(r'```.*?```', '[Detalles del archivo en pantalla]', text, flags=re.DOTALL)
+        clean_text = re.sub(r'[*#_`-]', '', clean_text)
+        
+        tts = gTTS(text=clean_text, lang="es", slow=False)
+        temp_mp3 = "response.mp3"
+        tts.save(temp_mp3)
+        
+        players = ["mpg123", "mpv", "play", "aplay", "paplay"]
+        played = False
+        
+        for player in players:
+            try:
+                subprocess.run([player, "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                if player in ["aplay", "paplay"]:
+                    try:
+                        ffmpeg_bin = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".venv", "bin", "ffmpeg")
+                        if not os.path.exists(ffmpeg_bin): ffmpeg_bin = "ffmpeg"
+                        subprocess.run([ffmpeg_bin, "-y", "-i", temp_mp3, "response.wav"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        subprocess.run([player, "response.wav"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        if os.path.exists("response.wav"):
+                            os.remove("response.wav")
+                        played = True
+                        break
+                    except Exception:
+                        continue
+                else:
+                    subprocess.run([player, temp_mp3], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    played = True
+                    break
+            except FileNotFoundError:
+                continue
+                
+        if os.path.exists(temp_mp3):
+            os.remove(temp_mp3)
+            
+    except Exception as e:
+        print(f"Error al reproducir audio de respuesta: {e}")
 
 def main():
     if len(sys.argv) < 2:
@@ -16,6 +61,9 @@ def main():
             data = response.json()
             print("\n✨ === RESPUESTA DE MILO === ✨")
             print(data["response"])
+            
+            # Speak the response out loud
+            speak(data["response"])
             
             print("\n🔧 === HERRAMIENTAS EJECUTADAS === 🔧")
             if data["execution_log"]:

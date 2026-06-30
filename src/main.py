@@ -207,6 +207,19 @@ async def websocket_voice_endpoint(websocket: WebSocket):
                 continue
             
             try:
+                # Detección de error de cuota (429) o cadena vacía (Agy falló o quedó sin cuota)
+                if not response_text or not response_text.strip():
+                    response_text = "Antigravity sin cuota por ahora, tu tarea quedó en cola."
+                    await websocket.send_json({"type": "quota_error", "text": response_text})
+                    # Mandamos también el audio del error para que el usuario lo escuche
+                    tts = gTTS(text=response_text, lang='es')
+                    fp = io.BytesIO()
+                    tts.write_to_fp(fp)
+                    fp.seek(0)
+                    audio_response_bytes = fp.read()
+                    await websocket.send_bytes(audio_response_bytes)
+                    continue
+
                 # Fallback TTS with gTTS
                 tts = gTTS(text=response_text, lang='es')
                 fp = io.BytesIO()

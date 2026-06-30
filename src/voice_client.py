@@ -116,7 +116,9 @@ def speak(text: str):
                 if player in ["aplay", "paplay"]:
                     try:
                         # Convertir a WAV primero con ffmpeg si es necesario
-                        subprocess.run(["ffmpeg", "-y", "-i", temp_mp3, "response.wav"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        ffmpeg_bin = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".venv", "bin", "ffmpeg")
+                        if not os.path.exists(ffmpeg_bin): ffmpeg_bin = "ffmpeg"
+                        subprocess.run([ffmpeg_bin, "-y", "-i", temp_mp3, "response.wav"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                         subprocess.run([player, "response.wav"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                         if os.path.exists("response.wav"):
                             os.remove("response.wav")

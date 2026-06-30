@@ -5,7 +5,7 @@ from src.main import app
 
 client = TestClient(app)
 
-@patch('src.main.generate_response')
+@patch('src.services.gemini_service.generate_response')
 @patch('src.main.gTTS')
 def test_websocket_voice_endpoint_text(mock_gtts, mock_generate_response):
     # Mock Gemini response
@@ -28,7 +28,7 @@ def test_websocket_voice_endpoint_text(mock_gtts, mock_generate_response):
         audio_bytes = websocket.receive_bytes()
         assert b"fake audio data" in audio_bytes
 
-@patch('src.main.generate_audio_response')
+@patch('src.services.gemini_service.generate_audio_response')
 @patch('src.main.gTTS')
 def test_websocket_voice_endpoint_audio(mock_gtts, mock_generate_audio_response):
     # Mock Gemini audio response

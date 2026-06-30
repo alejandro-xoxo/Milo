@@ -9,16 +9,6 @@ if env_path.exists():
 else:
     load_dotenv()
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 PORT = int(os.getenv("PORT", "8000"))
 HOST = os.getenv("HOST", "0.0.0.0")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
-
-# Log or validate settings
-if not GEMINI_API_KEY:
-    print("WARNING: GEMINI_API_KEY is not set. The Gemini service will not function.")
-if not ANTHROPIC_API_KEY:
-    print("WARNING: ANTHROPIC_API_KEY is not set. Claude fallback will not function.")
-
-

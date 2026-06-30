@@ -7,242 +7,171 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #0b0c10;
-            --circle-color: #45f3ff;
-            --circle-glow: rgba(69, 243, 255, 0.5);
-            --text-color: #c5c6c7;
-            --panel-bg: rgba(31, 40, 51, 0.6);
-            --border-color: rgba(69, 243, 255, 0.2);
+            --bg-color: #01020a;
+            --text-color: #f0f4f8;
+            --panel-bg: rgba(3, 5, 12, 0.75);
+            --border-color: rgba(37, 99, 235, 0.20);
+            
+            /* Avatar States */
+            --idle-color: #06b6d4;      /* Cian */
+            --idle-glow: rgba(6, 182, 212, 0.4);
+            
+            --process-color: #a855f7;   /* Púrpura */
+            --process-glow: rgba(168, 85, 247, 0.4);
+            
+            --speak-color: #3b82f6;     /* Azul */
+            --speak-glow: rgba(59, 130, 246, 0.4);
+
+            --error-color: #ef4444;     /* Rojo */
+            --error-glow: rgba(239, 68, 68, 0.4);
+
+            --message-user-bg: rgba(37, 99, 235, 0.15);
+            --message-milo-bg: rgba(124, 58, 237, 0.15);
         }
 
         body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
+            margin: 0; padding: 0; height: 100%;
             background-color: var(--bg-color);
             font-family: 'Outfit', sans-serif;
             color: var(--text-color);
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            display: flex; justify-content: center; align-items: center;
             overflow: hidden;
+            background-image:
+              linear-gradient(rgba(59, 130, 246, 0.04) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(59, 130, 246, 0.04) 1px, transparent 1px);
+            background-size: 60px 60px;
+            cursor: none;
+        }
+
+        #bg-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+
+        #mouse-glow {
+            position: absolute; width: 800px; height: 800px;
+            background: radial-gradient(circle closest-side, rgba(124, 58, 237, 0.15), transparent);
+            transform: translate(-50%, -50%); border-radius: 50%;
+            pointer-events: none; z-index: 0; transition: opacity 0.3s;
+        }
+        
+        .cursor-dot {
+            position: fixed; width: 6px; height: 6px;
+            background-color: var(--idle-color); border-radius: 50%;
+            pointer-events: none; z-index: 9999;
+            transform: translate(-50%, -50%); box-shadow: 0 0 10px var(--idle-color);
         }
 
         .container {
-            width: 90%;
-            max-width: 1200px;
-            height: 90%;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
+            width: 90%; max-width: 1200px; height: 90%;
+            display: flex; flex-direction: column; gap: 20px; z-index: 1;
+            position: relative;
         }
 
         header {
-            text-align: center;
-            text-transform: uppercase;
-            letter-spacing: 4px;
-            font-weight: 800;
-            font-size: 2rem;
-            color: var(--circle-color);
-            text-shadow: 0 0 10px var(--circle-glow);
-            margin-bottom: 20px;
+            text-align: center; text-transform: uppercase; letter-spacing: 4px;
+            font-weight: 800; font-size: 2rem; color: #fff;
+            text-shadow: 0 0 15px var(--idle-color); margin-bottom: 20px;
         }
 
         .main-content {
-            display: flex;
-            flex: 1;
-            gap: 40px;
-            align-items: center;
-            justify-content: center;
+            display: flex; flex: 1; gap: 40px; justify-content: center; min-height: 0; position: relative;
         }
 
-        /* Avatar / Jarvis Circle */
-        .avatar-container {
-            position: relative;
-            width: 300px;
-            height: 300px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-shrink: 0;
+        /* Avatar Container */        .avatar-container {
+            position: relative; width: 250px; height: 250px;
+            display: flex; justify-content: center; align-items: center;
+            margin-bottom: 2rem;
+            /* We will keep the CSS circle but make it invisible, the 3D scene handles the visuals now */
+        }
+        
+        /* Ocultar el círculo 2D anterior ya que ahora usaremos el 3D central */
+        .circle, .circle-inner { display: none; }
+
+        @keyframes error-shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            50% { transform: translateX(10px); }
+            75% { transform: translateX(-10px); }
         }
 
-        .circle {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            border: 2px solid var(--border-color);
-            box-shadow: 0 0 20px var(--circle-glow), inset 0 0 20px var(--circle-glow);
-            animation: pulse 4s infinite linear;
-            transition: all 0.3s ease;
+        /* Subtitles */
+        .subtitles {
+            position: absolute; bottom: -60px; left: 50%; transform: translateX(-50%);
+            width: 120%; text-align: center;
+            font-size: 1.2rem; font-weight: 300; letter-spacing: 1px;
+            color: var(--text-color);
+            text-shadow: 0 0 10px rgba(255,255,255,0.5);
+            min-height: 2em; pointer-events: none;
         }
 
-        .circle.active {
-            border-color: #ff45a3;
-            box-shadow: 0 0 40px rgba(255, 69, 163, 0.8), inset 0 0 40px rgba(255, 69, 163, 0.8);
-            animation: pulse-active 1.5s infinite linear;
+        /* Side Panel */
+        .side-panel {
+            position: absolute; right: -320px; top: 0; bottom: 0; width: 300px;
+            background: rgba(3, 5, 12, 0.85); border-left: 1px solid var(--border-color);
+            backdrop-filter: blur(12px); transition: right 0.3s ease;
+            display: flex; flex-direction: column; z-index: 10;
+            border-radius: 20px 0 0 20px; box-shadow: -5px 0 20px rgba(0,0,0,0.5);
         }
 
-        .circle-inner {
-            position: absolute;
-            width: 70%;
-            height: 70%;
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(69,243,255,0.2) 0%, rgba(11,12,16,0) 70%);
+        .side-panel.open { right: -40px; } /* Adjust depending on layout */
+
+        .panel-toggle {
+            position: absolute; left: -40px; top: 50%; transform: translateY(-50%);
+            width: 40px; height: 60px; background: rgba(3, 5, 12, 0.85);
+            border: 1px solid var(--border-color); border-right: none;
+            border-radius: 10px 0 0 10px; cursor: pointer; color: white;
+            display: flex; justify-content: center; align-items: center;
+            backdrop-filter: blur(12px); font-size: 1.2rem;
         }
 
-        .circle.active .circle-inner {
-            background: radial-gradient(circle, rgba(255,69,163,0.3) 0%, rgba(11,12,16,0) 70%);
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(0.95); opacity: 0.8; }
-            50% { transform: scale(1.05); opacity: 1; }
-            100% { transform: scale(0.95); opacity: 0.8; }
-        }
-
-        @keyframes pulse-active {
-            0% { transform: scale(0.9); opacity: 0.7; }
-            50% { transform: scale(1.1); opacity: 1; }
-            100% { transform: scale(0.9); opacity: 0.7; }
-        }
+        .side-panel-content { padding: 20px; overflow-y: auto; flex: 1; }
+        .side-panel-content h3 { margin-top: 0; font-size: 1.1rem; color: var(--idle-color); border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+        .task-list { list-style: none; padding: 0; margin: 0; font-size: 0.9rem; color: #ccc; }
+        .task-list li { margin-bottom: 10px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 8px; border-left: 3px solid var(--process-color); animation: fadeIn 0.3s ease; }
+        .task-list li.error { border-left-color: var(--error-color); color: var(--error-color); }
 
         /* Chat Panel */
         .chat-panel {
-            flex: 1;
-            height: 100%;
-            background: var(--panel-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            flex: 1; height: 100%; background: var(--panel-bg);
+            border: 1px solid var(--border-color); border-radius: 20px;
+            backdrop-filter: blur(12px); display: flex; flex-direction: column;
+            overflow: hidden; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+            transition: margin-right 0.3s ease;
         }
 
-        .chat-history {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
+        .chat-history { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .message { max-width: 80%; padding: 14px 20px; border-radius: 16px; line-height: 1.6; font-size: 1.05rem; animation: fadeIn 0.3s ease; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); }
+        .message.user { align-self: flex-end; background: var(--message-user-bg); border: 1px solid rgba(37, 99, 235, 0.3); border-bottom-right-radius: 4px; }
+        .message.milo { align-self: flex-start; background: var(--message-milo-bg); border: 1px solid rgba(124, 58, 237, 0.3); border-bottom-left-radius: 4px; }
 
-        .message {
-            max-width: 80%;
-            padding: 12px 18px;
-            border-radius: 15px;
-            line-height: 1.5;
-            font-size: 1rem;
-            animation: fadeIn 0.3s ease;
-        }
-
-        .message.user {
-            align-self: flex-end;
-            background: rgba(69, 243, 255, 0.1);
-            border: 1px solid rgba(69, 243, 255, 0.3);
-            border-bottom-right-radius: 2px;
-        }
-
-        .message.milo {
-            align-self: flex-start;
-            background: rgba(255, 69, 163, 0.1);
-            border: 1px solid rgba(255, 69, 163, 0.3);
-            border-bottom-left-radius: 2px;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
         /* Input Area */
-        .input-area {
-            display: flex;
-            padding: 20px;
-            gap: 15px;
-            background: rgba(0, 0, 0, 0.2);
-            border-top: 1px solid var(--border-color);
-        }
+        .input-area { display: flex; padding: 20px; gap: 15px; background: rgba(0, 0, 0, 0.4); border-top: 1px solid var(--border-color); }
+        input[type="text"] { flex: 1; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; color: var(--text-color); font-family: 'Outfit', sans-serif; font-size: 1.05rem; outline: none; transition: all 0.3s; }
+        input[type="text"]:focus { border-color: var(--idle-color); background: rgba(255, 255, 255, 0.08); box-shadow: 0 0 10px var(--idle-glow); }
+        
+        .btn { background: rgba(124, 58, 237, 0.15); border: 1px solid var(--idle-color); color: #fff; padding: 0 25px; border-radius: 12px; cursor: pointer; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; transition: all 0.3s; display: flex; align-items: center; justify-content: center; }
+        .btn:hover { background: var(--idle-color); box-shadow: 0 0 20px var(--idle-color); }
+        .btn.mic { border-radius: 50%; width: 55px; height: 55px; padding: 0; font-size: 1.4rem; }
+        .btn.mic.recording { background: var(--error-color); border-color: var(--error-color); animation: pulse-idle 1s infinite; box-shadow: 0 0 20px var(--error-glow); }
 
-        input[type="text"] {
-            flex: 1;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 15px;
-            color: #fff;
-            font-family: 'Outfit', sans-serif;
-            font-size: 1rem;
-            outline: none;
-            transition: border 0.3s;
-        }
-
-        input[type="text"]:focus {
-            border-color: #ff45a3;
-        }
-
-        .btn {
-            background: rgba(69, 243, 255, 0.1);
-            border: 1px solid var(--circle-color);
-            color: var(--circle-color);
-            padding: 0 25px;
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .btn:hover {
-            background: var(--circle-color);
-            color: #000;
-            box-shadow: 0 0 15px var(--circle-color);
-        }
-
-        .btn.mic {
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            padding: 0;
-            font-size: 1.2rem;
-        }
-
-        .btn.mic.recording {
-            background: #ff45a3;
-            border-color: #ff45a3;
-            color: #fff;
-            animation: pulse-active 1s infinite;
-        }
-
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: rgba(0,0,0,0.1);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(69, 243, 255, 0.3);
-            border-radius: 4px;
-        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        ::-webkit-scrollbar-thumb { background: rgba(124, 58, 237, 0.4); border-radius: 4px; }
     </style>
 </head>
 <body>
+    <canvas id="bg-canvas"></canvas>
+    <div id="mouse-glow"></div>
+    <div class="cursor-dot" id="cursor-dot"></div>
 
     <div class="container">
         <header>MILO CORTEX</header>
         
         <div class="main-content">
             <div class="avatar-container">
-                <div class="circle" id="milo-avatar"></div>
+                <div class="circle idle" id="milo-avatar"></div>
                 <div class="circle-inner"></div>
+                <div class="subtitles" id="subtitles"></div>
             </div>
 
             <div class="chat-panel">
@@ -255,6 +184,17 @@
                     <button class="btn" id="send-btn">Enviar</button>
                 </div>
             </div>
+
+            <!-- Side Panel -->
+            <div class="side-panel" id="side-panel">
+                <div class="panel-toggle" id="panel-toggle">❮</div>
+                <div class="side-panel-content">
+                    <h3>Background Tasks</h3>
+                    <ul class="task-list" id="task-list">
+                        <!-- Tareas aparecerán aquí -->
+                    </ul>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -265,36 +205,151 @@
         const sendBtn = document.getElementById('send-btn');
         const micBtn = document.getElementById('mic-btn');
         const avatar = document.getElementById('milo-avatar');
+        const subtitles = document.getElementById('subtitles');
+        const sidePanel = document.getElementById('side-panel');
+        const panelToggle = document.getElementById('panel-toggle');
+        const taskList = document.getElementById('task-list');
         
         let isRecording = false;
         let mediaRecorder;
         let audioChunks = [];
 
+        // Audio Context for visualizer
+        let audioCtx;
+        let analyser;
+
+        panelToggle.addEventListener('click', () => {
+            sidePanel.classList.toggle('open');
+            panelToggle.textContent = sidePanel.classList.contains('open') ? '❯' : '❮';
+        });
+
+        function setAvatarState(state) {
+            avatar.className = `circle ${state}`; // Keep for compatibility
+            if(window.update3DAvatar) window.update3DAvatar(state, null, 0);
+        }
+
+        function addBackgroundTask(text, isError = false) {
+            const li = document.createElement('li');
+            li.textContent = text;
+            if(isError) li.className = 'error';
+            taskList.appendChild(li);
+            // Mostrar panel automáticamente si hay nueva tarea
+            if(!sidePanel.classList.contains('open')) {
+                sidePanel.classList.add('open');
+                panelToggle.textContent = '❯';
+            }
+            // Auto scroll to bottom
+            const panelContent = document.querySelector('.side-panel-content');
+            panelContent.scrollTop = panelContent.scrollHeight;
+        }
+
+        // Subtitle typing effect
+        let subtitleInterval;
+        function showSubtitles(text, durationMs) {
+            clearInterval(subtitleInterval);
+            subtitles.textContent = '';
+            if(!text) return;
+
+            const chars = text.split('');
+            let idx = 0;
+            // Si no tenemos duración, asumimos velocidad de lectura media (ej. 50ms por char)
+            const delay = durationMs ? (durationMs / chars.length) : 50;
+
+            subtitleInterval = setInterval(() => {
+                if (idx < chars.length) {
+                    subtitles.textContent += chars[idx];
+                    idx++;
+                } else {
+                    clearInterval(subtitleInterval);
+                }
+            }, delay);
+        }
+
         ws.onopen = () => {
             console.log("WebSocket connected.");
+            setAvatarState('idle');
         };
+
+        let lastTextResponse = '';
 
         ws.onmessage = async (event) => {
             if (typeof event.data === "string") {
                 const data = JSON.parse(event.data);
+                
                 if (data.type === "text") {
                     addMessage(data.text, 'milo');
-                    avatar.classList.remove('active');
-                } else if (data.type === "error") {
-                    addMessage(`Error: ${data.error}`, 'milo');
-                    avatar.classList.remove('active');
+                    lastTextResponse = data.text; // Store for subtitle
+                } 
+                else if (data.type === "status") {
+                    addBackgroundTask(data.text);
+                }
+                else if (data.type === "error" || data.status === 429) {
+                    // Check for rate limit or quota
+                    if(data.status === 429 || (data.error && data.error.includes("429"))) {
+                        setAvatarState('error');
+                        addBackgroundTask("Tarea encolada", true);
+                        addMessage("Límite alcanzado. Tarea encolada en background.", 'milo');
+                    } else {
+                        setAvatarState('error');
+                        addMessage(`Error: ${data.error}`, 'milo');
+                    }
+                    setTimeout(() => { if(avatar.classList.contains('error')) setAvatarState('idle'); }, 3000);
                 }
             } else if (event.data instanceof Blob) {
                 // Audio response
-                const audioUrl = URL.createObjectURL(event.data);
-                const audio = new Audio(audioUrl);
-                avatar.classList.add('active');
-                audio.play();
-                audio.onended = () => {
-                    avatar.classList.remove('active');
-                };
+                playAudioResponse(event.data);
             }
         };
+
+        async function playAudioResponse(blob) {
+            if(!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 256;
+            }
+            if(audioCtx.state === 'suspended') await audioCtx.resume();
+
+            const audioUrl = URL.createObjectURL(blob);
+            const audio = new Audio(audioUrl);
+            
+            // Connect to visualizer
+            const source = audioCtx.createMediaElementSource(audio);
+            source.connect(analyser);
+            analyser.connect(audioCtx.destination);
+
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            setAvatarState('speaking');
+            audio.play();
+
+            // Try to approximate duration for subtitles. If not loaded, use a default delay.
+            audio.addEventListener('loadedmetadata', () => {
+                const duration = audio.duration * 1000;
+                if(lastTextResponse) showSubtitles(lastTextResponse, duration);
+                lastTextResponse = '';
+            });
+
+            function renderFrame() {
+                if(audio.paused || audio.ended) return;
+                requestAnimationFrame(renderFrame);
+                analyser.getByteFrequencyData(dataArray);
+                
+                let sum = 0;
+                for(let i=0; i<bufferLength; i++) sum += dataArray[i];
+                let avg = sum / bufferLength;
+                
+                if(window.update3DAvatar && avatar.classList.contains('speaking')) {
+                    window.update3DAvatar('speaking', dataArray, avg);
+                }
+            }
+            renderFrame();
+
+            audio.onended = () => {
+                setAvatarState('idle');
+                setTimeout(() => subtitles.textContent = '', 2000); // Clear subtitles after 2s
+            };
+        }
 
         function addMessage(text, sender) {
             const div = document.createElement('div');
@@ -310,7 +365,8 @@
                 ws.send(JSON.stringify({ text }));
                 addMessage(text, 'user');
                 textInput.value = '';
-                avatar.classList.add('active'); // show thinking state
+                setAvatarState('processing'); // show thinking state
+                subtitles.textContent = ''; // clear any existing subtitles
             }
         }
 
@@ -335,7 +391,7 @@
                     if (ws.readyState === WebSocket.OPEN) {
                         ws.send(audioBlob);
                         addMessage("[Mensaje de voz enviado]", 'user');
-                        avatar.classList.add('active');
+                        setAvatarState('processing');
                     }
                 };
             } catch (err) {
@@ -352,12 +408,170 @@
                 mediaRecorder.start();
                 isRecording = true;
                 micBtn.classList.add('recording');
+                setAvatarState('idle');
             } else {
                 mediaRecorder.stop();
                 isRecording = false;
                 micBtn.classList.remove('recording');
             }
         });
+
+        // Mouse Glow and Custom Cursor
+        const glow = document.getElementById('mouse-glow');
+        const dot = document.getElementById('cursor-dot');
+        
+        document.addEventListener('mousemove', (e) => {
+            glow.style.left = e.clientX + 'px';
+            glow.style.top  = e.clientY + 'px';
+            dot.style.left = e.clientX + 'px';
+            dot.style.top = e.clientY + 'px';
+        });
+    </script>
+
+    <!-- Three.js Background Animation -->
+    <script type="module">
+        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js';
+
+        const canvas = document.getElementById('bg-canvas');
+        if (canvas) {
+            const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setClearColor(0x000000, 0);
+
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 28;
+
+            const PARTICLE_COUNT = 1500;
+            const positions = new Float32Array(PARTICLE_COUNT * 3);
+            const colors = new Float32Array(PARTICLE_COUNT * 3);
+
+            const colorA = new THREE.Color('#3b82f6'); // blue
+            const colorB = new THREE.Color('#7c3aed'); // purple
+            const colorC = new THREE.Color('#06b6d4'); // cyan
+
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const i3 = i * 3;
+                positions[i3] = (Math.random() - 0.5) * 80;
+                positions[i3 + 1] = (Math.random() - 0.5) * 60;
+                positions[i3 + 2] = (Math.random() - 0.5) * 40;
+
+                const mix = Math.random();
+                const c = mix < 0.33 ? colorA : mix < 0.66 ? colorB : colorC;
+                colors[i3] = c.r;
+                colors[i3 + 1] = c.g;
+                colors[i3 + 2] = c.b;
+            }
+
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const mat = new THREE.PointsMaterial({
+                size: 0.15,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.8,
+            });
+
+            const points = new THREE.Points(geo, mat);
+            scene.add(points);
+
+            // --- 3D Avatar Core ---
+            const avatarGeo = new THREE.IcosahedronGeometry(1.5, 3);
+            const avatarMat = new THREE.MeshBasicMaterial({ 
+                color: 0x06b6d4, wireframe: true, transparent: true, opacity: 0.8 
+            });
+            const avatarMesh = new THREE.Mesh(avatarGeo, avatarMat);
+            // Move closer to camera
+            avatarMesh.position.z = 24;
+            scene.add(avatarMesh);
+
+            let currentAvatarState = 'idle';
+            let audioScale = 1.0;
+
+            window.update3DAvatar = function(state, dataArray, avgVol) {
+                currentAvatarState = state;
+                if (state === 'speaking') {
+                    audioScale = 1 + (avgVol / 256) * 0.8;
+                } else if (state === 'idle') {
+                    audioScale = 1;
+                    avatarMat.color.setHex(0x06b6d4); // Cyan
+                } else if (state === 'processing') {
+                    audioScale = 1.2;
+                    avatarMat.color.setHex(0x7c3aed); // Purple
+                } else if (state === 'error') {
+                    audioScale = 1;
+                    avatarMat.color.setHex(0xef4444); // Red
+                }
+            };
+
+            let mouseX = 0;
+            let mouseY = 0;
+            let targetX = 0;
+            let targetY = 0;
+
+            document.addEventListener('mousemove', (e) => {
+                mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+                mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+            });
+
+            function resize() {
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+            }
+            window.addEventListener('resize', resize);
+            resize();
+
+            const clock = new THREE.Clock();
+
+            function animate() {
+                requestAnimationFrame(animate);
+                const elapsed = clock.getElapsedTime();
+
+                targetX += (mouseX - targetX) * 0.04;
+                targetY += (mouseY - targetY) * 0.04;
+
+                // Background particles rotation
+                points.rotation.y = elapsed * 0.02 + targetX * 0.1;
+                points.rotation.x = targetY * 0.1;
+
+                // Avatar Animation
+                if (currentAvatarState === 'processing') {
+                    avatarMesh.rotation.y += 0.05;
+                    avatarMesh.rotation.x += 0.05;
+                } else {
+                    avatarMesh.rotation.y += 0.01;
+                    avatarMesh.rotation.x += 0.005;
+                }
+
+                if (currentAvatarState === 'speaking') {
+                    avatarMat.color.setHex(0x3b82f6); // Blue when speaking
+                    // Apply audio deformation (pulsing)
+                    const targetScale = audioScale;
+                    avatarMesh.scale.x += (targetScale - avatarMesh.scale.x) * 0.2;
+                    avatarMesh.scale.y += (targetScale - avatarMesh.scale.y) * 0.2;
+                    avatarMesh.scale.z += (targetScale - avatarMesh.scale.z) * 0.2;
+                } else {
+                    // Gentle pulse for idle
+                    const pulse = 1 + Math.sin(elapsed * 2) * 0.05;
+                    let targetScale = currentAvatarState === 'processing' ? 1.2 : pulse;
+                    avatarMesh.scale.x += (targetScale - avatarMesh.scale.x) * 0.1;
+                    avatarMesh.scale.y += (targetScale - avatarMesh.scale.y) * 0.1;
+                    avatarMesh.scale.z += (targetScale - avatarMesh.scale.z) * 0.1;
+                }
+                
+                if (currentAvatarState === 'error') {
+                    avatarMesh.position.x = (Math.random() - 0.5) * 0.2;
+                } else {
+                    avatarMesh.position.x += (0 - avatarMesh.position.x) * 0.1;
+                }
+
+                renderer.render(scene, camera);
+            }
+            animate();
+        }
     </script>
 </body>
 </html>
