@@ -1,14 +1,12 @@
-# Estado Actual de MILO (MILO V2)
+# Estado Actual de MILO (MILO V3 Final)
 
 > **Documento de Contexto para Agentes de IA:** Este archivo contiene la arquitectura exacta, estado actual y tecnologías utilizadas en el proyecto MILO. Lee este documento cuidadosamente antes de proponer cambios arquitectónicos o refactorizaciones.
 
 ## 1. Visión General
-MILO es un asistente personal autónomo y resiliente (estilo Jarvis) que opera a través de una interfaz web conversacional (texto y voz). Originalmente dependía de integraciones directas vía API con Gemini y Anthropic, pero **ha sido refactorizado a una arquitectura "Zero API Keys"**. 
-
-Actualmente, el cerebro lógico de MILO cuenta con una estructura de doble motor:
-1.  **OpenClaw Gateway (Primario)**: Orquestador multi-proveedor local que distribuye las consultas al motor configurado.
-2.  **Vulcan CLI / `agy` (Respaldo)**: Ejecución local autenticada con la cuenta de Google del usuario, que actúa como fallback automático cuando OpenClaw no está disponible.
-MILO actúa como orquestador general, proveedor de herramientas y servidor de la interfaz gráfica.
+MILO es un asistente personal autónomo y resiliente (estilo Jarvis) que opera a través de una interfaz web conversacional (texto y voz). Opera bajo una arquitectura **"Zero API Keys" y multi-motor resiliente (V3 Final)**:
+1.  **OpenClaw Gateway (Primario)**: Motor conversacional por defecto. Todos los mensajes generales del usuario se enrutan a través del gateway de OpenClaw (`http://127.0.0.1:18789/v1/chat/completions`) utilizando el token de autenticación de MILO y el proveedor local de Google Gemini (`google/gemini-2.5-flash`) configurado mediante la API key gratuita del proyecto.
+2.  **Codex CLI (Fallback)**: Motor conversacional de respaldo. Si OpenClaw está deshabilitado por el circuit breaker o experimenta errores de red/conexión, MILO desvía automáticamente las peticiones de forma transparente a Codex CLI (`/home/alejandro/.local/bin/codex exec`) usando el inicio de sesión OAuth del usuario.
+3.  **Vulcan CLI / `agy` (Invocación Explícita)**: Motor de respaldo e investigación profunda. Se invoca de forma puntual y explícita por el usuario usando triggers concretos (ej. "vulcan, crea un test").
 
 ---
 
@@ -22,7 +20,8 @@ MILO actúa como orquestador general, proveedor de herramientas y servidor de la
     *   Cola de tareas asíncronas (`task_queue`).
     *   Manejo de estado de herramientas y motor activo (`tool_status`).
     *   Auto-creación de skills (`task_patterns`).
-*   **Motor de Inferencia:** `OpenClaw` corriendo como daemon local (`http://127.0.0.1:18789`) es el motor principal. Como fallback de bajo nivel y contingencia, MILO ejecuta `Antigravity CLI` (renombrado internamente en la telemetría como **Vulcan**) vía `subprocess.run` con el flag `--dangerously-skip-permissions` para ejecución autónoma sin bloqueos.
+    *   Persistencia de historial de conversación y caché de resúmenes (`chat_history`).
+*   **Motor de Inferencia:** `OpenClaw Gateway` como motor principal (consultas HTTP a `http://127.0.0.1:18789/v1/chat/completions` con modelo `google/gemini-2.5-flash`), con fallback automático y transparente a `Codex CLI` local (`/home/alejandro/.local/bin/codex exec`) usando el modelo `gpt-5.4-mini` (con reasoning effort `low` por defecto) y escalando dinámicamente a `gpt-5.4` en tareas complejas. Como motor secundario explícito para triggers, MILO ejecuta `Antigravity CLI` (renombrado internamente como **Vulcan**) vía `subprocess.run` con el flag `--dangerously-skip-permissions`.
 *   **Síntesis y Procesamiento de Voz:** Usa un binario local estático de `ffmpeg` (instalado en `.venv/bin/`) para transcodificación de audio. Cuenta con autodetección robusta de formatos de contenedor (.webm, .ogg, .wav, .mp3, .m4a) a partir de bytes mágicos y tipo MIME, control estricto de errores de FFmpeg y limpieza garantizada de archivos temporales. `gTTS` se mantiene como fallback para la síntesis de voz.
 
 ### Frontend
@@ -42,11 +41,9 @@ MILO actúa como orquestador general, proveedor de herramientas y servidor de la
 
 ## 3. Arquitectura y Fusión de Identidad (MILO = Antigravity)
 
-Históricamente, MILO dependía de un "Tool Orchestrator Local" en `agy_brain.py` que ejecutaba `agy --print` como un LLM ciego. **Actualmente la arquitectura ha dado un salto hacia la fusión total**:
-
 1.  **Fusión de Identidad (`AGENTS.md`):** Antigravity CLI ha adoptado permanentemente la persona y reglas operativas de MILO a nivel global del proyecto.
 2.  **Habilidades Nativas (`milo-core` Skill):** MILO ahora utiliza de manera directa y nativa las herramientas de Antigravity (búsqueda, edición, bash) sin depender de intermediarios de Python (`TOOL_CALL`), operando autónomamente en el espacio de trabajo.
-3.  **AgyBrain Local (Fallback/UI Orchestration):** Para las peticiones que ingresan por la interfaz web (`localhost:8000`), el backend utiliza `AgyBrain` para enrutarlas por defecto a OpenClaw. Si se detecta un error de cuota o de red, `AgyBrain` conmuta automáticamente a Vulcan (CLI), reportando el estado del procesamiento en el panel de Procesos Activos del frontend. La mente operante sigue fusionada con la identidad de MILO.
+3.  **AgyBrain Local (Enrutamiento, Triage y Fallback):** Para las peticiones que ingresan por la interfaz web (`localhost:8000`), el backend utiliza `AgyBrain` para comprobar la presencia de triggers explícitos de Vulcan. Si existe, ejecuta Vulcan de forma aislada e inyecta el resultado al contexto de Codex. Si no, enruta a OpenClaw; si este falla, conmutará a Codex CLI. Si ambos fallan, encola la tarea en SQLite y no realiza cascadas automáticas a Vulcan.
 4.  **Humanización Estricta de Respuestas:** El formateador en `src/services/response_formatter.py` erradica muletillas e introducciones robóticas. Además, se redujo el umbral de activación para la reescritura con LLM de 400 a 250 caracteres, usando un prompt estricto en `AgyBrain` para obtener respuestas concisas de 1-2 oraciones sin formato markdown, optimizadas para voz (TTS).
 
 ---
@@ -62,24 +59,22 @@ El sistema cuenta con un registro centralizado (`TOOL_REGISTRY`) con las siguien
     *   `web_search(query, num_results)`: Busca en internet haciendo scrapping del HTML plano de DuckDuckGo (sin API Keys).
     *   `fetch_page(url, max_chars)`: Descarga el contenido de páginas web limpiando estilos y scripts mediante Regex puro (no usa BeautifulSoup).
 3.  **Metacognición / Programación Autónoma:**
-    *   `run_antigravity(task, mode)`: Delega tareas complejas de modificación de código o investigación profunda nuevamente a la CLI de Antigravity en modo interactivo (`--permission always-proceed` o `proceed-in-sandbox`).
+    *   `run_antigravity(task, mode)`: Delega tareas complejas de modificación de código o investigación profunda nuevamente a la CLI de Antigravity en modo interactivo (`--permission always-proceed' o `proceed-in-sandbox`).
 4.  **Misceláneos:**
     *   `get_current_weather(location)`: Consulta de clima.
 
 ---
 
-## 5. Módulos Avanzados (MILO V2)
+## 5. Módulos Avanzados (MILO V3)
 
-*   **Proactividad (`src/services/proactive_engine.py`):** Un motor que corre al iniciar sesión (endpoint `/session/greeting`). Analiza la base de datos de SQLite y el FileSystem para generar un mensaje espontáneo tipo: *"Mientras no estabas, ocurrieron 3 errores y tienes 1 tarea pendiente"*.
+*   **Proactividad (`src/services/proactive_engine.py`):** Un motor que corre al iniciar sesión (endpoint `/session/greeting`). Analiza SQLite, el FileSystem y la salud de la plataforma, generando un saludo proactivo en base a errores previos.
 *   **Creador de Skills Autónomo (`src/services/skill_creator.py`):** Un observador que detecta patrones en las tareas solicitadas. Si el usuario pide lo mismo más de *N* veces, MILO autogenera un archivo `.agents/skills/<nombre>/SKILL.md` documentando cómo hacerlo mejor la próxima vez.
-*   **Circuit Breaker y Resiliencia (`src/services/circuit_breaker.py`):** Patrón que bloquea el uso de herramientas si estas fallan consecutivamente, evitando bucles infinitos de la IA. Si el motor falla por cuotas (`RESOURCE_EXHAUSTED 429`), las peticiones se encolan en la base de datos (Background Task Queue).
+*   **Circuit Breaker y Resiliencia (`src/services/circuit_breaker.py`):** Patrón que bloquea el uso de herramientas si estas fallan consecutivamente. Habilitados límites de tolerancia diferenciados: Codex (falla rápido: `threshold=3`, `cooldown_minutes=5`) y Vulcan (tolerancia a fallos: `threshold=3`, `cooldown_minutes=15`). Si Codex está deshabilitado por el breaker o falla, la petición se encola en SQLite (`task_queue`).
 
 ---
 
-## 6. Puntos Críticos y Fragilidades Conocidas
-
-*   **Dependencia Estricta de la Salida de `agy`:** Reducida significativamente al emplear OpenClaw como motor principal. Cuando se desvía la consulta a Vulcan (CLI), el orquestador aún depende de que `agy` no altere silenciosamente su stdout. La invocación de fallback se realiza con el flag `--dangerously-skip-permissions` para prevenir bloqueos interactivos.
-*   **Latencia y Límites de Cuota (Error 429):** Mitigados con la arquitectura de doble motor. Si OpenClaw (principal) falla o sufre limitaciones, MILO conmuta automáticamente a Vulcan (CLI) en tiempo real. Sólo si ambos motores fallan consecutivamente o están deshabilitados por el *circuit breaker*, las peticiones se encolan en la base de datos (Background Task Queue).
+*   **Dependencia del Gateway OpenClaw:** Como motor principal, depende de que el daemon local de OpenClaw (`18789`) esté activo. Si se cae o se deshabilita por circuit breaker, el sistema cuenta con el fallback robusto a Codex CLI.
+*   **Invocaciones de Vulcan:** Vulcan se ejecuta de forma aislada y bajo demanda del usuario, usando el flag `--dangerously-skip-permissions`.
 *   **Persistencia:** La DB SQLite (`milo.db` o `test_milo.db`) es la única fuente de verdad para el estado de las tareas y habilidades. No se usa Redis ni colas en memoria.
 
 ## 7. Instrucciones para Ejecución
@@ -88,6 +83,6 @@ El sistema cuenta con un registro centralizado (`TOOL_REGISTRY`) con las siguien
 source .venv/bin/activate
 # Iniciar Servidor (Host en http://localhost:8000)
 python -m src.main
-# Pruebas Unitarias (55/55 pasando)
-python -m pytest tests/
+# Pruebas Unitarias (62/62 pasando)
+.venv/bin/python -m pytest
 ```

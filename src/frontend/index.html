@@ -56,18 +56,19 @@
         }
 
         .avatar-container {
-            position: relative; width: 350px; height: 350px;
+            position: relative; width: 132px; height: 132px;
             display: flex; justify-content: center; align-items: center;
             flex-shrink: 0; align-self: center; flex-direction: column;
             /* El canvas 3D ocupa la pantalla, pero este contenedor sitúa lógicamente los subtítulos */
+            pointer-events: auto; /* Permite capturar eventos del ratón para el avatar 3D */
         }
 
         /* Subtitles */
         .subtitles {
-            position: absolute; bottom: -80px; left: 50%; transform: translateX(-50%);
-            width: 150%; text-align: center;
+            position: absolute; bottom: -34px; left: 50%; transform: translateX(-50%);
+            width: 220px; max-width: 82vw; text-align: center;
             font-family: 'Outfit', sans-serif;
-            font-size: 1.5rem; font-weight: 300; letter-spacing: 1px;
+            font-size: 0.86rem; font-weight: 300; letter-spacing: 0.35px;
             color: rgba(255,255,255,0.9);
             text-shadow: 0 4px 15px rgba(0,0,0,0.8), 0 0 20px var(--idle-color);
             min-height: 2em; pointer-events: none;
@@ -639,7 +640,8 @@
                 tDiffuse:      { value: null },
                 uTime:         { value: 0 },
                 uStrength:     { value: 0.055 },
-                uAudioStrength:{ value: 0.0 }
+                uAudioStrength:{ value: 0.0 },
+                uCenter:       { value: new THREE.Vector2(0.5, 0.5) }
             },
             vertexShader: `
                 varying vec2 vUv;
@@ -653,10 +655,10 @@
                 uniform float uTime;
                 uniform float uStrength;
                 uniform float uAudioStrength;
+                uniform vec2 uCenter;
                 varying vec2 vUv;
                 void main() {
-                    vec2 center = vec2(0.5);
-                    vec2 diff = vUv - center;
+                    vec2 diff = vUv - uCenter;
                     float dist = length(diff);
                     float strength = uStrength + uAudioStrength;
                     float displacement = strength / (1.0 + dist * dist * 8.0);
@@ -1082,7 +1084,9 @@
         let   mouseWorld = new THREE.Vector3();
         let   easterEggActive = false, easterEggTimer = 0;
 
-        canvas.addEventListener('click', (e) => {
+        avatarContainer.addEventListener('click', (e) => {
+            mouseVec.x = (e.clientX/window.innerWidth)*2 - 1;
+            mouseVec.y = -(e.clientY/window.innerHeight)*2 + 1;
             raycaster.setFromCamera(mouseVec, camera);
             const hits = raycaster.intersectObjects([eventHorizon, accretionDisk, teslaLines], true);
             if (!hits.length) return;
@@ -1101,7 +1105,7 @@
             }
         });
 
-        canvas.addEventListener('mousemove', (e) => {
+        avatarContainer.addEventListener('mousemove', (e) => {
             mouseVec.x = (e.clientX/window.innerWidth)*2 - 1;
             mouseVec.y = -(e.clientY/window.innerHeight)*2 + 1;
             const vecT = new THREE.Vector3(mouseVec.x, mouseVec.y, 0.5).unproject(camera);
@@ -1109,7 +1113,12 @@
             mouseWorld.copy(camera.position).addScaledVector(dir, -camera.position.z / dir.z);
             raycaster.setFromCamera(mouseVec, camera);
             const hits = raycaster.intersectObjects([accretionDisk, eventHorizon, teslaLines], true);
-            canvas.style.cursor = hits.length ? 'pointer' : 'default';
+            avatarContainer.style.cursor = hits.length ? 'pointer' : 'default';
+        });
+
+        avatarContainer.addEventListener('mouseleave', () => {
+            avatarContainer.style.cursor = 'default';
+            hideTooltip();
         });
 
         // ═══════════════════════════════════════════════════════
@@ -1121,10 +1130,10 @@
         const inertiaDecay = 0.91;
         let dragBloomBoost = 0;
 
-        canvas.addEventListener('pointerdown', (e) => {
+        avatarContainer.addEventListener('pointerdown', (e) => {
             isDragging = true; prevPointer = { x:e.clientX, y:e.clientY }; angVel = { x:0, y:0 };
         });
-        canvas.addEventListener('pointermove', (e) => {
+        window.addEventListener('pointermove', (e) => {
             if (!isDragging || currentAvatarState === 'processing') return;
             angVel.y = (e.clientX - prevPointer.x) * 0.008;
             angVel.x = -(e.clientY - prevPointer.y) * 0.008;
@@ -1133,17 +1142,17 @@
             dragBloomBoost = 0.5;
             prevPointer = { x:e.clientX, y:e.clientY };
         });
-        canvas.addEventListener('pointerup',    () => { isDragging = false; });
-        canvas.addEventListener('pointerleave', () => { isDragging = false; });
+        window.addEventListener('pointerup',    () => { isDragging = false; });
+        window.addEventListener('pointerleave', () => { isDragging = false; });
 
         // Touch pinch-to-zoom
         let lastPinchDist = 0;
-        canvas.addEventListener('touchstart', (e) => {
+        avatarContainer.addEventListener('touchstart', (e) => {
             if (e.touches.length===2) lastPinchDist = Math.hypot(
                 e.touches[0].clientX-e.touches[1].clientX,
                 e.touches[0].clientY-e.touches[1].clientY);
         }, {passive:true});
-        canvas.addEventListener('touchmove', (e) => {
+        avatarContainer.addEventListener('touchmove', (e) => {
             if (e.touches.length===2) {
                 const dtch = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
                 zoomConfig.target = Math.max(5, Math.min(15, zoomConfig.target + (lastPinchDist-dtch)*0.03));
@@ -1154,7 +1163,7 @@
         // ═══════════════════════════════════════════════════════
         // ZOOM CONTROLLER
         // ═══════════════════════════════════════════════════════
-        const zoomConfig = { current:8.5, target:8.5, speed:0.05 };
+        const zoomConfig = { current:9.6, target:9.6, speed:0.05 };
 
         // ═══════════════════════════════════════════════════════
         // FPS MONITOR (adaptive quality)
@@ -1178,11 +1187,11 @@
         let processingWobble=0, bloomTargetStrength=0.45;
 
         const stateCfg = {
-            idle:       { ring:0xffffff, halo:0xffffff, glow:0x888888, bloom:0.35, jetOp:0.08,  zoom:8.5, lensStr:0.045 },
-            processing: { ring:0xc026d3, halo:0xc026d3, glow:0xc026d3, bloom:0.55, jetOp:0.40,  zoom:7.0, lensStr:0.060 },
-            speaking:   { ring:0xffffff, halo:0xffffff, glow:0xaaaaaa, bloom:0.50, jetOp:0.06,  zoom:7.5, lensStr:0.045 },
-            listening:  { ring:0x00e5bc, halo:0x00e5bc, glow:0x00e5bc, bloom:0.30, jetOp:0.05,  zoom:8.0, lensStr:0.035 },
-            error:      { ring:0xff3333, halo:0xff3333, glow:0xff3333, bloom:0.65, jetOp:0.15,  zoom:9.5, lensStr:0.045 }
+            idle:       { ring:0xffffff, halo:0xffffff, glow:0x888888, bloom:0.35, jetOp:0.08,  zoom:9.6, lensStr:0.045 },
+            processing: { ring:0xc026d3, halo:0xc026d3, glow:0xc026d3, bloom:0.55, jetOp:0.40,  zoom:7.8, lensStr:0.060 },
+            speaking:   { ring:0xffffff, halo:0xffffff, glow:0xaaaaaa, bloom:0.50, jetOp:0.06,  zoom:8.7, lensStr:0.045 },
+            listening:  { ring:0x00e5bc, halo:0x00e5bc, glow:0x00e5bc, bloom:0.30, jetOp:0.05,  zoom:9.2, lensStr:0.035 },
+            error:      { ring:0xff3333, halo:0xff3333, glow:0xff3333, bloom:0.65, jetOp:0.15,  zoom:10.2, lensStr:0.045 }
         };
 
         window.update3DAvatar = function(state, dataArray, avgVol) {
@@ -1564,13 +1573,13 @@
                 // Respiración cósmica dual para el estado idle (dos frecuencias superpuestas)
                 tScale = 1.0 + Math.sin(elapsed * 1.2) * 0.035 + Math.sin(elapsed * 2.8) * 0.012;
             }
-            coreGroup.scale.lerp(new THREE.Vector3(tScale,tScale,tScale), 1-Math.exp(-3.5*dt));
 
-            // Dynamic position tracking to align with DOM container
+            // Dynamic position and scale tracking to align with DOM container
             let targetXCoord = -4.5;
             let targetYCoord = 0;
+            let baseScale = 0.55; // default fallback scale
             const rect = avatarContainer.getBoundingClientRect();
-            if (rect.width > 0) {
+            if (rect.width > 0 && window.innerHeight > 0) {
                 const ndcX = ((rect.left + rect.width / 2) / window.innerWidth) * 2 - 1;
                 const ndcY = -((rect.top + rect.height / 2) / window.innerHeight) * 2 + 1;
                 const vec = new THREE.Vector3(ndcX, ndcY, 0.5).unproject(camera);
@@ -1579,7 +1588,19 @@
                 const domTargetPos = camera.position.clone().addScaledVector(dir, dist);
                 targetXCoord = domTargetPos.x;
                 targetYCoord = domTargetPos.y;
+
+                // Dynamically calculate base scale based on fov and container width
+                const fovRad = camera.fov * Math.PI / 360;
+                const screenHeight3D = 2 * camera.position.z * Math.tan(fovRad);
+                const screenWidth3D = screenHeight3D * camera.aspect;
+                const containerWidth3D = (rect.width / window.innerWidth) * screenWidth3D;
+                // Slightly tighter fit so the avatar feels denser without losing breathing room
+                baseScale = containerWidth3D / 13.0;
             }
+
+            // Apply scale
+            const finalScale = baseScale * tScale;
+            coreGroup.scale.lerp(new THREE.Vector3(finalScale, finalScale, finalScale), 1-Math.exp(-3.5*dt));
 
             // Position drift
             if (currentAvatarState==='error') {
@@ -1592,6 +1613,12 @@
                 coreGroup.position.x += (targetXCoord + targetX*0.5 + dX - coreGroup.position.x)*pL;
                 coreGroup.position.y += (targetYCoord - targetY*0.5 + dY - coreGroup.position.y)*pL;
             }
+
+            // Project coreGroup world position to screen space for lensing shader
+            const worldPos = new THREE.Vector3();
+            coreGroup.getWorldPosition(worldPos);
+            worldPos.project(camera);
+            lensingPass.uniforms.uCenter.value.set((worldPos.x + 1) / 2, (worldPos.y + 1) / 2);
 
             // Camera zoom
             zoomConfig.current += (zoomConfig.target-zoomConfig.current)*zoomConfig.speed;

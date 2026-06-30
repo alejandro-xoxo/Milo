@@ -12,9 +12,10 @@ import os
 import json
 import pytest
 from datetime import datetime, timedelta
+from unittest.mock import patch, MagicMock
 
 # Forzar ruta de base de datos de prueba ANTES de importar cualquier servicio
-os.environ["DB_PATH"] = "test_proactive.db"
+os.environ["DB_PATH"] = "test_milo.db"
 # Apuntar PROJECT_ROOT a un directorio temporal para evitar lecturas reales
 os.environ["PROJECT_ROOT"] = "/tmp/milo_proactive_test"
 
@@ -45,10 +46,21 @@ def setup_and_teardown_db(tmp_path):
     os.environ["PROJECT_ROOT"] = str(tmp_path)
 
     init_db()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM tool_status")
+    cursor.execute("DELETE FROM incidents")
+    cursor.execute("DELETE FROM task_queue")
+    cursor.execute("DELETE FROM chat_history")
+    conn.commit()
+    conn.close()
     yield
     # Cleanup
-    if os.path.exists("test_proactive.db"):
-        os.remove("test_proactive.db")
+    if os.path.exists("test_milo.db"):
+        try:
+            os.remove("test_milo.db")
+        except:
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -340,3 +352,44 @@ class TestGetSessionGreeting:
         result = get_session_greeting()
         assert any(t["type"] == "stale_tasks" for t in result["triggers"])
         assert "tarea" in result["greeting"].lower()
+
+
+# ---------------------------------------------------------------------------
+# Tests adicionales para salud de OpenClaw
+# ---------------------------------------------------------------------------
+
+class TestOpenClawHealth:
+    """Verifica el chequeo de salud de OpenClaw y sus alertas."""
+
+    def test_openclaw_offline_trigger(self):
+        """Si openclaw_healthy es False, dispara trigger 'openclaw_offline'."""
+        signals = {
+            "unresolved_errors": [],
+            "pending_tasks": [],
+            "recent_files": [],
+            "openclaw_healthy": False,
+        }
+        triggers = evaluate_triggers(signals)
+        offline = [t for t in triggers if t["type"] == "openclaw_offline"]
+        assert len(offline) == 1
+        assert offline[0]["severity"] == "medium"
+        assert "offline" in offline[0]["detail"].lower()
+
+    @patch("requests.get")
+    def test_check_openclaw_health_success(self, mock_get):
+        """Si la petición GET de health es exitosa, retorna True."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_get.return_value = mock_resp
+
+        from src.services.proactive_engine import _check_openclaw_health
+        assert _check_openclaw_health() is True
+
+    @patch("requests.get")
+    def test_check_openclaw_health_failure(self, mock_get):
+        """Si la petición GET falla con excepción, retorna False."""
+        import requests
+        mock_get.side_effect = requests.exceptions.ConnectionError("Connection refused")
+
+        from src.services.proactive_engine import _check_openclaw_health
+        assert _check_openclaw_health() is False
