@@ -7,19 +7,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;600;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #050505;
+            --bg-color: #000000;
             --text-color: #ffffff;
-            --panel-bg: rgba(15, 15, 15, 0.7);
-            --border-color: rgba(255, 255, 255, 0.1);
+            --panel-bg: rgba(5, 5, 5, 0.85);
+            --border-color: rgba(255, 255, 255, 0.15);
             /* Avatar States - Ultra Realistic & Monochrome */
-            --idle-color: #aaaaaa;      /* Gris sobrio */
-            --process-color: #888888;   /* Gris medio */
+            --idle-color: #ffffff;      /* Blanco puro */
+            --process-color: #c026d3;   /* Morado rojizo para pensar */
+            --listen-color: #00e5bc;    /* Azul verdoso para escuchar */
             --speak-color: #ffffff;     /* Blanco puro */
             --error-color: #ff3333;     /* Rojo intenso para errores */
             --error-glow: rgba(255, 51, 51, 0.4);
 
-            --message-user-bg: rgba(255, 255, 255, 0.06);
-            --message-milo-bg: rgba(255, 255, 255, 0.1);
+            --message-user-bg: rgba(255, 255, 255, 0.08);
+            --message-milo-bg: rgba(255, 255, 255, 0.12);
         }
 
         body, html {
@@ -29,43 +30,9 @@
             color: var(--text-color);
             display: flex; justify-content: center; align-items: center;
             overflow: hidden;
-            cursor: none; /* Custom cursor */
-        }
-
-        /* Subtle grid background */
-        .grid-bg {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background-image:
-              linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-            background-size: 80px 80px;
-            z-index: 0; pointer-events: none;
-            mask-image: radial-gradient(circle at center, black 20%, transparent 80%);
-            -webkit-mask-image: radial-gradient(circle at center, black 20%, transparent 80%);
         }
 
         #bg-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
-
-        #mouse-glow {
-            position: absolute; width: 600px; height: 600px;
-            background: radial-gradient(circle closest-side, rgba(255, 255, 255, 0.05), transparent);
-            transform: translate(-50%, -50%); border-radius: 50%;
-            pointer-events: none; z-index: 1; transition: opacity 0.3s;
-        }
-        
-        .cursor-dot {
-            position: fixed; width: 8px; height: 8px;
-            background-color: var(--idle-color); border-radius: 50%;
-            pointer-events: none; z-index: 9999;
-            transform: translate(-50%, -50%); box-shadow: 0 0 15px var(--idle-color);
-            transition: width 0.2s, height 0.2s, background-color 0.5s;
-        }
-
-        .cursor-dot.active {
-            width: 20px; height: 20px;
-            background-color: rgba(255, 255, 255, 0.2);
-            border: 2px solid var(--idle-color);
-        }
 
         .container {
             width: 90%; max-width: 1400px; height: 90%;
@@ -77,7 +44,7 @@
             text-align: center; font-family: 'Outfit', sans-serif;
             text-transform: uppercase; letter-spacing: 6px;
             font-weight: 800; font-size: 2.5rem; color: #fff;
-            background: linear-gradient(90deg, var(--idle-color), var(--process-color));
+            background: linear-gradient(90deg, #ffffff, #888888);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 20px;
@@ -111,10 +78,10 @@
         .side-panel {
             position: absolute; right: -360px; top: 0; bottom: 0; width: 340px;
             background: var(--panel-bg); border-left: 1px solid var(--border-color);
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
             transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
             display: flex; flex-direction: column; z-index: 10;
-            border-radius: 24px 0 0 24px; box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+            border-radius: 24px 0 0 24px; box-shadow: -15px 0 40px rgba(0,0,0,0.8);
         }
 
         .side-panel.open { right: -40px; } 
@@ -125,7 +92,7 @@
             border: 1px solid var(--border-color); border-right: none;
             border-radius: 16px 0 0 16px; cursor: pointer; color: white;
             display: flex; justify-content: center; align-items: center;
-            backdrop-filter: blur(20px); font-size: 1.2rem;
+            backdrop-filter: blur(25px); font-size: 1.2rem;
             transition: background 0.3s, color 0.3s;
         }
         .panel-toggle:hover { background: rgba(255,255,255,0.1); }
@@ -154,60 +121,86 @@
             to { opacity: 1; transform: translateX(0); }
         }
 
-        /* Chat Section */
+        /* Chat Section — Premium Gray Glassmorphism */
         .chat-section {
             flex: 1; display: flex; flex-direction: column;
-            background: var(--panel-bg); border-radius: 24px;
-            border: 1px solid var(--border-color);
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            background: rgba(8, 8, 8, 0.85);
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(25px) saturate(1.2);
+            -webkit-backdrop-filter: blur(25px) saturate(1.2);
+            box-shadow:
+                0 12px 40px rgba(0, 0, 0, 0.8),
+                0 0 0 1px rgba(255, 255, 255, 0.05) inset;
             overflow: hidden; max-width: 600px;
+            position: relative;
+        }
+        .chat-section::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: 24px; pointer-events: none;
+            background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 40%, transparent 60%, rgba(255,255,255,0.02) 100%);
+            z-index: 0;
         }
 
         .chat-history {
             flex: 1; padding: 25px; overflow-y: auto;
             display: flex; flex-direction: column; gap: 15px;
             scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.2) transparent;
+            position: relative; z-index: 1;
         }
-        .chat-history::-webkit-scrollbar { width: 6px; }
+        .chat-history::-webkit-scrollbar { width: 5px; }
         .chat-history::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+        .chat-history::-webkit-scrollbar-track { background: transparent; }
 
         .message {
             max-width: 85%; padding: 14px 18px; border-radius: 18px;
             font-size: 1rem; line-height: 1.5; font-weight: 300;
-            animation: fadeIn 0.3s ease; letter-spacing: 0.3px;
+            animation: msgAppear 0.4s cubic-bezier(0.16, 1, 0.3, 1); letter-spacing: 0.3px;
+            backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
         }
         .message.user {
-            align-self: flex-end; background: var(--message-user-bg);
-            border-bottom-right-radius: 4px; border: 1px solid rgba(255,255,255,0.1);
+            align-self: flex-end;
+            background: rgba(255, 255, 255, 0.08);
+            border-bottom-right-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.18);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
         }
         .message.milo {
-            align-self: flex-start; background: var(--message-milo-bg);
-            border-bottom-left-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.1);
+            align-self: flex-start;
+            background: rgba(255, 255, 255, 0.12);
+            border-bottom-left-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
         }
 
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes msgAppear {
+            from { opacity: 0; transform: translateY(12px) scale(0.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
 
         .input-area {
             display: flex; padding: 20px; gap: 15px;
-            background: rgba(0,0,0,0.2); border-top: 1px solid var(--border-color);
+            background: rgba(5, 5, 5, 0.95);
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            position: relative; z-index: 1;
         }
 
         input[type="text"] {
-            flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color);
+            flex: 1; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.12);
             color: white; padding: 0 20px; border-radius: 12px; font-size: 1rem;
             outline: none; transition: all 0.3s; font-family: 'Inter', sans-serif;
             font-weight: 300;
         }
-        input[type="text"]:focus { border-color: var(--idle-color); background: rgba(255,255,255,0.08); box-shadow: 0 0 15px rgba(255, 255, 255, 0.1); }
+        input[type="text"]:focus { border-color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.08); box-shadow: 0 0 15px rgba(255, 255, 255, 0.15); }
 
         .btn {
-            background: rgba(255,255,255,0.05); color: white; border: 1px solid var(--border-color);
+            background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.15);
             padding: 0 24px; border-radius: 12px; cursor: pointer; font-size: 1rem;
             transition: all 0.3s; display: flex; justify-content: center; align-items: center;
             font-family: 'Outfit', sans-serif; font-weight: 600; letter-spacing: 1px;
         }
-        .btn:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); }
+        .btn:hover { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.3); transform: translateY(-2px); }
         .btn:active { transform: translateY(0); }
 
         .btn.mic { padding: 0; width: 50px; height: 50px; border-radius: 50%; font-size: 1.2rem; }
@@ -245,9 +238,6 @@
     </style>
 </head>
 <body>
-    <div class="grid-bg"></div>
-    <div id="mouse-glow"></div>
-    <div class="cursor-dot" id="cursor-dot"></div>
     <canvas id="bg-canvas"></canvas>
     
     <div class="ptt-overlay" id="ptt-overlay">Mantén presionado <span>Espacio</span> para hablar</div>
@@ -301,6 +291,22 @@
 
         let audioCtx;
         let analyser;
+        let currentSourceNode = null;
+
+        function ensureAudioContext() {
+            if(!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 256;
+            }
+            if(audioCtx.state === 'suspended') {
+                audioCtx.resume().catch(err => console.log("AudioContext resume failed:", err));
+            }
+        }
+
+        // Initialize/resume audio context on user gesture events
+        document.addEventListener('click', ensureAudioContext, { once: false });
+        document.addEventListener('keydown', ensureAudioContext, { once: false });
 
         panelToggle.addEventListener('click', () => {
             sidePanel.classList.toggle('open');
@@ -313,6 +319,10 @@
                 subtitles.style.textShadow = '0 4px 15px rgba(0,0,0,0.8), 0 0 20px var(--error-color)';
             } else if (state === 'speaking') {
                 subtitles.style.textShadow = '0 4px 15px rgba(0,0,0,0.8), 0 0 20px var(--speak-color)';
+            } else if (state === 'listening') {
+                subtitles.style.textShadow = '0 4px 15px rgba(0,0,0,0.8), 0 0 20px var(--listen-color)';
+            } else if (state === 'processing') {
+                subtitles.style.textShadow = '0 4px 15px rgba(0,0,0,0.8), 0 0 20px var(--process-color)';
             } else {
                 subtitles.style.textShadow = '0 4px 15px rgba(0,0,0,0.8), 0 0 20px var(--idle-color)';
             }
@@ -386,44 +396,63 @@
         };
 
         async function playAudioResponse(blob) {
-            if(!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                analyser = audioCtx.createAnalyser();
-                analyser.fftSize = 256;
-            }
-            if(audioCtx.state === 'suspended') await audioCtx.resume();
-            const audioUrl = URL.createObjectURL(blob);
-            const audio = new Audio(audioUrl);
-            const source = audioCtx.createMediaElementSource(audio);
-            source.connect(analyser);
-            analyser.connect(audioCtx.destination);
-            const bufferLength = analyser.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
+            ensureAudioContext();
             
-            setAvatarState('speaking');
-            audio.play();
+            try {
+                if (currentSourceNode) {
+                    try { currentSourceNode.stop(); } catch(e) {}
+                }
 
-            audio.addEventListener('loadedmetadata', () => {
-                const duration = audio.duration * 1000;
+                // Create a Blob with explicit mime type for safer arrayBuffer conversion
+                const audioBlob = new Blob([blob], { type: 'audio/mp3' });
+                const arrayBuffer = await audioBlob.arrayBuffer();
+                
+                // Decode audio data natively to bypass HTML5 audio autoplay/CORS restrictions
+                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                
+                const source = audioCtx.createBufferSource();
+                source.buffer = audioBuffer;
+                currentSourceNode = source;
+                
+                source.connect(analyser);
+                analyser.connect(audioCtx.destination);
+                
+                const bufferLength = analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+                
+                setAvatarState('speaking');
+                source.start(0);
+                
+                const duration = audioBuffer.duration * 1000;
                 if(lastTextResponse) showSubtitles(lastTextResponse, duration);
                 lastTextResponse = '';
-            });
-
-            function renderFrame() {
-                if(audio.paused || audio.ended) return;
-                requestAnimationFrame(renderFrame);
-                analyser.getByteFrequencyData(dataArray);
-                let sum = 0;
-                for(let i=0; i<bufferLength; i++) sum += dataArray[i];
-                let avg = sum / bufferLength;
-                if(window.update3DAvatar) window.update3DAvatar('speaking', dataArray, avg);
+                
+                let isPlaying = true;
+                
+                function renderFrame() {
+                    if(!isPlaying) return;
+                    requestAnimationFrame(renderFrame);
+                    analyser.getByteFrequencyData(dataArray);
+                    let sum = 0;
+                    for(let i=0; i<bufferLength; i++) sum += dataArray[i];
+                    let avg = sum / bufferLength;
+                    if(window.update3DAvatar) window.update3DAvatar('speaking', dataArray, avg);
+                }
+                renderFrame();
+                
+                source.onended = () => {
+                    isPlaying = false;
+                    if (currentSourceNode === source) {
+                        currentSourceNode = null;
+                        setAvatarState('idle');
+                        setTimeout(() => subtitles.textContent = '', 2000);
+                    }
+                };
+            } catch (err) {
+                console.error("Error playing audio response:", err);
+                setAvatarState('error');
+                setTimeout(() => setAvatarState('idle'), 2000);
             }
-            renderFrame();
-
-            audio.onended = () => {
-                setAvatarState('idle');
-                setTimeout(() => subtitles.textContent = '', 2000);
-            };
         }
 
         function addMessage(text, sender) {
@@ -435,6 +464,7 @@
         }
 
         function sendMessage() {
+            ensureAudioContext();
             const text = textInput.value.trim();
             if (text && ws.readyState === WebSocket.OPEN) {
                 taskList.innerHTML = ''; // Limpiar tareas anteriores
@@ -449,13 +479,24 @@
         sendBtn.addEventListener('click', sendMessage);
         textInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
 
+        let micStream;
+        let micAudioCtx;
+        let micAnalyser;
+        let micSource;
+        let micRenderActive = false;
+
         async function setupAudio() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                micStream = stream;
+                
+                // Compatibility for Safari and other browsers that might not support audio/webm
+                const options = MediaRecorder.isTypeSupported('audio/webm') ? { mimeType: 'audio/webm' } : {};
+                mediaRecorder = new MediaRecorder(stream, options);
+                
                 mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
                 mediaRecorder.onstop = () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const audioBlob = new Blob(audioChunks);
                     audioChunks = [];
                     if (ws.readyState === WebSocket.OPEN) {
                         taskList.innerHTML = ''; // Limpiar tareas anteriores
@@ -471,12 +512,39 @@
         }
 
         async function startRecording() {
+            ensureAudioContext();
             if (!mediaRecorder) await setupAudio();
             if (!mediaRecorder || isRecording) return;
             mediaRecorder.start();
             isRecording = true;
             micBtn.classList.add('recording');
-            setAvatarState('idle');
+            setAvatarState('listening');
+
+            if (micStream) {
+                if (!micAudioCtx) {
+                    micAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    micAnalyser = micAudioCtx.createAnalyser();
+                    micAnalyser.fftSize = 256;
+                    micSource = micAudioCtx.createMediaStreamSource(micStream);
+                    micSource.connect(micAnalyser);
+                }
+                if (micAudioCtx.state === 'suspended') await micAudioCtx.resume();
+                
+                micRenderActive = true;
+                const bufferLength = micAnalyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+                
+                function renderMicFrame() {
+                    if (!isRecording || !micRenderActive) return;
+                    requestAnimationFrame(renderMicFrame);
+                    micAnalyser.getByteFrequencyData(dataArray);
+                    let sum = 0;
+                    for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
+                    let avg = sum / bufferLength;
+                    if (window.update3DAvatar) window.update3DAvatar('listening', dataArray, avg);
+                }
+                renderMicFrame();
+            }
         }
 
         function stopRecording() {
@@ -484,6 +552,7 @@
             mediaRecorder.stop();
             isRecording = false;
             micBtn.classList.remove('recording');
+            micRenderActive = false;
         }
 
         micBtn.addEventListener('mousedown', startRecording);
@@ -514,19 +583,10 @@
         setTimeout(() => pttOverlay.classList.add('visible'), 1000);
         setTimeout(() => pttOverlay.classList.remove('visible'), 5000);
 
-        // Custom Cursor
-        const glow = document.getElementById('mouse-glow');
-        const dot = document.getElementById('cursor-dot');
-        document.addEventListener('mousemove', (e) => {
-            glow.style.left = e.clientX + 'px';
-            glow.style.top  = e.clientY + 'px';
-            dot.style.left = e.clientX + 'px';
-            dot.style.top = e.clientY + 'px';
-        });
-        document.addEventListener('mousedown', () => dot.classList.add('active'));
-        document.addEventListener('mouseup', () => dot.classList.remove('active'));
+        // Starfield and cursor logic optimized natively to improve frame rates and remove clutter.
 
     </script>
+
 
     <!-- Import Map for Three.js -->
     <script type="importmap">
@@ -538,283 +598,777 @@
       }
     </script>
 
-    <!-- Post-processed Ultra-Realistic Three.js Scene -->
+    <!-- MILO V2 — Ultra-Realistic Black Hole Avatar -->
     <script type="module">
         import * as THREE from 'three';
         import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
 
+        // ═══════════════════════════════════════════════════════
+        // RENDERER & SCENE
+        // ═══════════════════════════════════════════════════════
         const canvas = document.getElementById('bg-canvas');
         const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio for performance
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setClearColor(0x000000, 0);
 
         const scene = new THREE.Scene();
-        // Add subtle fog for depth
-        scene.fog = new THREE.FogExp2(0x050505, 0.015);
+        scene.fog = new THREE.FogExp2(0x050505, 0.012);
 
         const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.z = 35; // slightly further back for larger objects
+        camera.position.set(0, 0, 12);
 
-        // --- Post-Processing Bloom ---
+        // ═══════════════════════════════════════════════════════
+        // POST-PROCESSING
+        // ═══════════════════════════════════════════════════════
         const renderScene = new RenderPass(scene, camera);
-        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 2.5, 0.7, 0.1);
+
+        const bloomPass = new UnrealBloomPass(
+            new THREE.Vector2(window.innerWidth, window.innerHeight),
+            1.8, 0.6, 0.1
+        );
+
+        // Gravitational Lensing Shader (post-process)
+        const lensingShader = {
+            uniforms: {
+                tDiffuse:      { value: null },
+                uTime:         { value: 0 },
+                uStrength:     { value: 0.055 },
+                uAudioStrength:{ value: 0.0 }
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform sampler2D tDiffuse;
+                uniform float uTime;
+                uniform float uStrength;
+                uniform float uAudioStrength;
+                varying vec2 vUv;
+                void main() {
+                    vec2 center = vec2(0.5);
+                    vec2 diff = vUv - center;
+                    float dist = length(diff);
+                    float strength = uStrength + uAudioStrength;
+                    float displacement = strength / (1.0 + dist * dist * 8.0);
+                    displacement *= sin(uTime * 0.4) * 0.12 + 0.88;
+                    vec2 displacedUv = vUv - normalize(diff + 0.001) * displacement * dist;
+                    vec4 c = texture2D(tDiffuse, displacedUv);
+                    c += texture2D(tDiffuse, displacedUv + vec2(0.0008, 0.0));
+                    c += texture2D(tDiffuse, displacedUv - vec2(0.0008, 0.0));
+                    gl_FragColor = c / 3.0;
+                }
+            `
+        };
+        const lensingPass = new ShaderPass(lensingShader);
+        lensingPass.renderToScreen = true;
+
         const composer = new EffectComposer(renderer);
         composer.addPass(renderScene);
         composer.addPass(bloomPass);
+        composer.addPass(lensingPass);
 
-        // --- Background Dust ---
-        const PARTICLE_COUNT = 2500;
-        const positions = new Float32Array(PARTICLE_COUNT * 3);
-        const colors = new Float32Array(PARTICLE_COUNT * 3);
-        const colorA = new THREE.Color('#ffffff'); // White
-        const colorB = new THREE.Color('#888888'); // Gray
-        const colorC = new THREE.Color('#333333'); // Dark gray
+        // ═══════════════════════════════════════════════════════
+        // STARFIELD
+        // ═══════════════════════════════════════════════════════
+        const starCount = 2500;
+        const starPositions = new Float32Array(starCount * 3);
+        const starSizes     = new Float32Array(starCount);
+        const starPhases    = new Float32Array(starCount);
 
-        for (let i = 0; i < PARTICLE_COUNT; i++) {
-            const i3 = i * 3;
-            positions[i3] = (Math.random() - 0.5) * 180;
-            positions[i3 + 1] = (Math.random() - 0.5) * 140;
-            positions[i3 + 2] = (Math.random() - 0.5) * 80 - 20; 
-
-            const mix = Math.random();
-            const c = mix < 0.33 ? colorA : mix < 0.66 ? colorB : colorC;
-            colors[i3] = c.r; colors[i3 + 1] = c.g; colors[i3 + 2] = c.b;
+        for (let i = 0; i < starCount; i++) {
+            starPositions[i*3]   = (Math.random() - 0.5) * 220;
+            starPositions[i*3+1] = (Math.random() - 0.5) * 160;
+            starPositions[i*3+2] = -Math.random() * 140 - 10;
+            starSizes[i]  = 0.05 + Math.pow(Math.random(), 2.0) * 0.20;
+            starPhases[i] = Math.random() * Math.PI * 2;
         }
 
-        const geoParticles = new THREE.BufferGeometry();
-        geoParticles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        geoParticles.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        const starGeo = new THREE.BufferGeometry();
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        starGeo.setAttribute('size',     new THREE.BufferAttribute(starSizes, 1));
+        starGeo.setAttribute('phase',    new THREE.BufferAttribute(starPhases, 1));
 
-        const matParticles = new THREE.PointsMaterial({
-            size: 0.15, vertexColors: true, transparent: true, opacity: 0.8,
-            blending: THREE.AdditiveBlending
+        const starMaterial = new THREE.ShaderMaterial({
+            uniforms: { time: { value: 0 }, color: { value: new THREE.Color('#ffffff') } },
+            vertexShader: `
+                uniform float time; attribute float size; attribute float phase; varying float vTwinkle;
+                void main() {
+                    vTwinkle = 0.20 + 0.80 * sin(time * (1.2 + sin(phase)*0.4) + phase);
+                    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                    gl_PointSize = size * (350.0 / -mvPosition.z);
+                    gl_Position = projectionMatrix * mvPosition;
+                }
+            `,
+            fragmentShader: `
+                varying float vTwinkle; uniform vec3 color;
+                void main() {
+                    vec2 coord = gl_PointCoord - vec2(0.5);
+                    if (length(coord) > 0.5) discard;
+                    gl_FragColor = vec4(color, vTwinkle * (1.0 - length(coord)*2.0));
+                }
+            `,
+            transparent: true, blending: THREE.AdditiveBlending, depthWrite: false
         });
 
-        const points = new THREE.Points(geoParticles, matParticles);
-        scene.add(points);
+        const starFieldPoints = new THREE.Points(starGeo, starMaterial);
+        scene.add(starFieldPoints);
 
-        // --- Ultra Realistic 3D Wave Orb ---
+        // ═══════════════════════════════════════════════════════
+        // BLACK HOLE CORE GROUP
+        // ═══════════════════════════════════════════════════════
         const coreGroup = new THREE.Group();
-        coreGroup.position.x = -12; // Move further left
-        
-        // Inner core (shattered glass look)
-        const innerGeo = new THREE.IcosahedronGeometry(2.5, 2);
-        const innerMat = new THREE.MeshBasicMaterial({ 
-            color: 0xffffff, wireframe: true, transparent: true, opacity: 0.7,
-            blending: THREE.AdditiveBlending
-        });
-        const innerMesh = new THREE.Mesh(innerGeo, innerMat);
-        
-        // Outer wave sphere (larger)
-        const outerGeo = new THREE.SphereGeometry(3.8, 128, 128);
-        const outerMat = new THREE.MeshBasicMaterial({ 
-            color: 0xaaaaaa, wireframe: true, transparent: true, opacity: 0.2,
-            blending: THREE.AdditiveBlending
-        });
-        const outerMesh = new THREE.Mesh(outerGeo, outerMat);
-
-        // Store original vertices for wave & hover deformation
-        const posAttrOuter = outerGeo.attributes.position;
-        const vertexDataOuter = [];
-        for(let i=0; i<posAttrOuter.count; i++) {
-            vertexDataOuter.push(new THREE.Vector3(posAttrOuter.getX(i), posAttrOuter.getY(i), posAttrOuter.getZ(i)));
-        }
-
-        const posAttrInner = innerGeo.attributes.position;
-        const vertexDataInner = [];
-        for(let i=0; i<posAttrInner.count; i++) {
-            vertexDataInner.push(new THREE.Vector3(posAttrInner.getX(i), posAttrInner.getY(i), posAttrInner.getZ(i)));
-        }
-
-        // Solid core (dark void)
-        const solidGeo = new THREE.SphereGeometry(1.8, 64, 64);
-        const solidMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
-        const solidMesh = new THREE.Mesh(solidGeo, solidMat);
-
-        // Orbital rings for futuristic look
-        const rings = [];
-        for(let i=0; i<3; i++) {
-            const ringGeo = new THREE.TorusGeometry(5 + i*0.8, 0.02, 16, 100);
-            const ringMat = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending });
-            const ring = new THREE.Mesh(ringGeo, ringMat);
-            ring.rotation.x = Math.random() * Math.PI;
-            ring.rotation.y = Math.random() * Math.PI;
-            coreGroup.add(ring);
-            rings.push({ mesh: ring, speedX: (Math.random()-0.5)*0.02, speedY: (Math.random()-0.5)*0.02 });
-        }
-
-        coreGroup.add(innerMesh);
-        coreGroup.add(outerMesh);
-        coreGroup.add(solidMesh);
+        coreGroup.position.x = -4.5;
         scene.add(coreGroup);
 
-        // Raycaster for interactiveness
-        const raycaster = new THREE.Raycaster();
-        const mouseVec = new THREE.Vector2();
-        let isHovered = false;
-        let hoverFactor = 0;
+        // ── EVENT HORIZON — custom absorber shader ──
+        const horizonMat = new THREE.ShaderMaterial({
+            uniforms: {
+                time:               { value: 0 },
+                absorptionStrength: { value: 1.2 },
+                hawkingExpand:      { value: 0.0 }
+            },
+            vertexShader: `
+                uniform float time; uniform float hawkingExpand;
+                varying vec3 vPosition; varying vec3 vNormal;
+                void main() {
+                    vPosition = position; vNormal = normal;
+                    vec3 pos = position;
+                    float angle = time * 0.08;
+                    float c = cos(angle); float s = sin(angle);
+                    pos.xy = mat2(c,-s,s,c) * pos.xy;
+                    pos *= 1.0 + hawkingExpand * 0.04;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform float absorptionStrength; uniform float time;
+                varying vec3 vPosition; varying vec3 vNormal;
+                void main() {
+                    float dist = length(vPosition);
+                    float edge = smoothstep(0.85, 1.0, dist);
+                    float halo = pow(max(0.0, dot(normalize(vNormal), vec3(0.0, 0.0, 1.0))), 3.0);
+                    float glow = edge * halo * 0.08;
+                    float alpha = clamp(1.0 - glow * 0.3 + absorptionStrength * 0.05, 0.9, 1.0);
+                    gl_FragColor = vec4(vec3(glow), alpha);
+                }
+            `,
+            transparent: true, depthWrite: true
+        });
 
+        const eventHorizon = new THREE.Mesh(new THREE.SphereGeometry(1.0, 64, 64), horizonMat);
+        eventHorizon.name = 'horizon';
+        coreGroup.add(eventHorizon);
+
+        // Einstein ring glow
+        const glowMat = new THREE.MeshBasicMaterial({
+            color: 0xaaaaaa, transparent: true, opacity: 0.22,
+            blending: THREE.AdditiveBlending, side: THREE.BackSide
+        });
+        coreGroup.add(new THREE.Mesh(new THREE.SphereGeometry(1.06, 64, 64), glowMat));
+
+        // ── PHOTON RING — thin torus at r ≈ 1.5 Schwarzschild ──
+        const photonRingMat = new THREE.MeshBasicMaterial({
+            color: 0xffffff, transparent: true, opacity: 0.45,
+            blending: THREE.AdditiveBlending, side: THREE.DoubleSide
+        });
+        const photonRing = new THREE.Mesh(
+            new THREE.TorusGeometry(1.5, 0.065, 24, 128),
+            photonRingMat
+        );
+        photonRing.name = 'photonRing';
+        photonRing.rotation.x = Math.PI * 0.04;
+        coreGroup.add(photonRing);
+
+        // ── ACCRETION DISK — procedural texture + toroidal mesh ──
+        function createAccretionDiskTexture(size) {
+            const c = document.createElement('canvas');
+            c.width = c.height = size;
+            const ctx = c.getContext('2d');
+            const img = ctx.createImageData(size, size);
+            const data = img.data;
+            const cx = size/2, maxR = size/2;
+
+            function noise(x, y) {
+                const xi = Math.floor(x), yi = Math.floor(y);
+                const xf = x-xi, yf = y-yi;
+                const h = (a,b) => { const v = Math.sin(a*127.1+b*311.7)*43758.5453; return v-Math.floor(v); };
+                const a=h(xi,yi), b=h(xi+1,yi), cc=h(xi,yi+1), d=h(xi+1,yi+1);
+                const ux=xf*xf*(3-2*xf), uy=yf*yf*(3-2*yf);
+                return a+(b-a)*ux+(cc-a)*uy+(a-b-cc+d)*ux*uy;
+            }
+
+            for (let i = 0; i < size; i++) for (let j = 0; j < size; j++) {
+                const dx=(i-cx)/maxR, dy=(j-cx)/maxR;
+                const r=Math.sqrt(dx*dx+dy*dy), theta=Math.atan2(dy,dx);
+                const idx=(j*size+i)*4;
+                if (r < 0.28 || r > 1.02) { data[idx+3]=0; continue; }
+                const nr=(r-0.28)/0.74;
+                const density=Math.exp(-nr*3.2);
+                const turb=noise(theta*4+r*8, r*6)*0.35 + Math.abs(Math.sin(theta*7+r*12))*0.12;
+                const intensity=Math.min(1, density + turb*(1-nr));
+                const bright=Math.round(intensity*255);
+                data[idx]=bright; data[idx+1]=bright; data[idx+2]=bright;
+                data[idx+3]=Math.round(intensity*215);
+            }
+            ctx.putImageData(img, 0, 0);
+            return new THREE.CanvasTexture(c);
+        }
+
+        const diskTexture = createAccretionDiskTexture(512);
+
+        const tiltedGroup = new THREE.Group();
+        tiltedGroup.rotation.x = Math.PI / 5;
+        tiltedGroup.rotation.y = Math.PI / 10;
+        coreGroup.add(tiltedGroup);
+
+        const diskMat = new THREE.MeshStandardMaterial({
+            map: diskTexture, emissiveMap: diskTexture,
+            emissive: new THREE.Color(0xffffff), emissiveIntensity: 0.7,
+            metalness: 0.1, roughness: 0.8,
+            transparent: true, opacity: 0.88,
+            side: THREE.DoubleSide, blending: THREE.NormalBlending, depthWrite: false
+        });
+        const accretionDisk = new THREE.Mesh(new THREE.TorusGeometry(2.8, 0.85, 48, 128), diskMat);
+        accretionDisk.name = 'disk';
+        tiltedGroup.add(accretionDisk);
+
+        // Particle ring overlay (Keplerian)
+        const RING_PARTICLES = 3000;
+        const ringPositions = new Float32Array(RING_PARTICLES * 3);
+        const ringColors    = new Float32Array(RING_PARTICLES * 3);
+        const ringCustomData = [];
+        const innerRadius = 1.6, outerRadius = 4.2;
+
+        for (let i = 0; i < RING_PARTICLES; i++) {
+            const r = innerRadius + Math.pow(Math.random(), 2.0) * (outerRadius - innerRadius);
+            const theta = Math.random() * Math.PI * 2;
+            const x = Math.cos(theta)*r, z = Math.sin(theta)*r, y = (Math.random()-0.5)*0.06;
+            ringPositions[i*3]=x; ringPositions[i*3+1]=y; ringPositions[i*3+2]=z;
+            const speed = 0.55 / Math.sqrt(r) * (0.9 + Math.random()*0.2);
+            ringCustomData.push({
+                radius:r, originalRadius:r, angle:theta, speed, yOffset:y,
+                svx:0, svy:0, svz:0, dodgeX:0, dodgeY:0, dodgeZ:0
+            });
+            const br = 0.55 + 0.45*(1-(r-innerRadius)/(outerRadius-innerRadius));
+            ringColors[i*3]=br; ringColors[i*3+1]=br; ringColors[i*3+2]=br;
+        }
+
+        const ringGeo = new THREE.BufferGeometry();
+        ringGeo.setAttribute('position', new THREE.BufferAttribute(ringPositions, 3));
+        ringGeo.setAttribute('color',    new THREE.BufferAttribute(ringColors, 3));
+        ringGeo.attributes.position.usage = THREE.DynamicDrawUsage;
+
+        const ringMat = new THREE.PointsMaterial({
+            size:0.10, vertexColors:true, transparent:true, opacity:0.75,
+            blending:THREE.AdditiveBlending, sizeAttenuation:true, depthWrite:false
+        });
+        const accretionRing = new THREE.Points(ringGeo, ringMat);
+        tiltedGroup.add(accretionRing);
+
+        // ── RELATIVISTIC JETS — helicoidal particle streams ──
+        const JET_PARTICLES = 600;
+        const jetPositions  = new Float32Array(JET_PARTICLES * 3);
+        const jetColors     = new Float32Array(JET_PARTICLES * 3);
+        const jetCustomData = [];
+
+        for (let i = 0; i < JET_PARTICLES; i++) {
+            const direction = i < JET_PARTICLES/2 ? 1 : -1;
+            const progress  = (i % (JET_PARTICLES/2)) / (JET_PARTICLES/2);
+            const y = direction * (0.8 + progress * 6.0);
+            const coneR = 0.05 + Math.abs(y)*0.045;
+            const theta = Math.random() * Math.PI * 2;
+            jetPositions[i*3]=Math.cos(theta)*coneR; jetPositions[i*3+1]=y; jetPositions[i*3+2]=Math.sin(theta)*coneR;
+            const br = 0.5 + (1-progress)*0.5;
+            jetColors[i*3]=br; jetColors[i*3+1]=br; jetColors[i*3+2]=br;
+            jetCustomData.push({ direction, speed:3.5+Math.random()*5, theta, helixPhase:Math.random()*Math.PI*2 });
+        }
+
+        const jetGeo = new THREE.BufferGeometry();
+        jetGeo.setAttribute('position', new THREE.BufferAttribute(jetPositions, 3));
+        jetGeo.setAttribute('color',    new THREE.BufferAttribute(jetColors, 3));
+        jetGeo.attributes.position.usage = THREE.DynamicDrawUsage;
+
+        const jetMat = new THREE.PointsMaterial({
+            size:0.10, vertexColors:true, transparent:true, opacity:0.0,
+            blending:THREE.AdditiveBlending, sizeAttenuation:true, depthWrite:false
+        });
+        const relativisticJets = new THREE.Points(jetGeo, jetMat);
+        relativisticJets.name = 'jets';
+        coreGroup.add(relativisticJets);
+
+        // ── LENSED HALO — Einstein ring particles ──
+        const HALO_PARTICLES = 800;
+        const haloPositions  = new Float32Array(HALO_PARTICLES * 3);
+        const haloColors     = new Float32Array(HALO_PARTICLES * 3);
+        const haloCustomData = [];
+
+        for (let i = 0; i < HALO_PARTICLES; i++) {
+            const r=1.4+Math.random()*0.8, theta=Math.random()*Math.PI*2;
+            haloPositions[i*3]=Math.cos(theta)*r; haloPositions[i*3+1]=Math.sin(theta)*r; haloPositions[i*3+2]=(Math.random()-0.5)*0.15;
+            haloCustomData.push({ radius:r, originalRadius:r, angle:theta, speed:0.2+Math.random()*0.4, zOffset:(Math.random()-0.5)*0.15 });
+            const cv=0.7+Math.random()*0.3; haloColors[i*3]=cv; haloColors[i*3+1]=cv; haloColors[i*3+2]=cv;
+        }
+
+        const haloGeo = new THREE.BufferGeometry();
+        haloGeo.setAttribute('position', new THREE.BufferAttribute(haloPositions, 3));
+        haloGeo.setAttribute('color',    new THREE.BufferAttribute(haloColors, 3));
+        haloGeo.attributes.position.usage = THREE.DynamicDrawUsage;
+
+        const haloMat = new THREE.PointsMaterial({
+            size:0.09, vertexColors:true, transparent:true, opacity:0.7,
+            blending:THREE.AdditiveBlending, sizeAttenuation:true, depthWrite:false
+        });
+        const lensedHalo = new THREE.Points(haloGeo, haloMat);
+        coreGroup.add(lensedHalo);
+
+        // ── SHOCKWAVE RINGS ──
+        const shockwaveRings = [];
+        function spawnShockwave() {
+            const mat = new THREE.MeshBasicMaterial({
+                color:0xffffff, transparent:true, opacity:0.7,
+                side:THREE.DoubleSide, blending:THREE.AdditiveBlending
+            });
+            const ring = new THREE.Mesh(new THREE.RingGeometry(0.1, 0.35, 48), mat);
+            ring.userData.age=0; ring.userData.maxAge=1.4; ring.userData.speed=4.5+Math.random()*2.5;
+            scene.add(ring);
+            ring.position.copy(coreGroup.position);
+            shockwaveRings.push(ring);
+        }
+        let lastShockwaveTime = 0;
+
+        // ═══════════════════════════════════════════════════════
+        // INTERACTIVE TOOLTIP
+        // ═══════════════════════════════════════════════════════
+        const tooltip = document.createElement('div');
+        Object.assign(tooltip.style, {
+            position:'fixed', pointerEvents:'none', zIndex:'999',
+            background:'rgba(0,0,0,0.8)', border:'1px solid rgba(255,255,255,0.18)',
+            color:'#fff', padding:'6px 14px', borderRadius:'8px',
+            fontSize:'0.78rem', fontFamily:"'Outfit', sans-serif",
+            backdropFilter:'blur(8px)', transition:'opacity 0.2s',
+            opacity:'0', letterSpacing:'0.5px', display:'none'
+        });
+        document.body.appendChild(tooltip);
+
+        function showTooltip(text, x, y) {
+            tooltip.textContent = text;
+            tooltip.style.left   = (x+14)+'px';
+            tooltip.style.top    = (y-30)+'px';
+            tooltip.style.opacity= '1';
+            tooltip.style.display= 'block';
+        }
+        function hideTooltip() {
+            tooltip.style.opacity = '0';
+            setTimeout(() => { if(tooltip.style.opacity==='0') tooltip.style.display='none'; }, 200);
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // RAYCASTING INTERACTION
+        // ═══════════════════════════════════════════════════════
+        const raycaster = new THREE.Raycaster();
+        const mouseVec  = new THREE.Vector2();
+        let   mouseWorld = new THREE.Vector3();
+        let   easterEggActive = false, easterEggTimer = 0;
+
+        canvas.addEventListener('click', (e) => {
+            raycaster.setFromCamera(mouseVec, camera);
+            const hits = raycaster.intersectObjects([eventHorizon, accretionDisk, relativisticJets], true);
+            if (!hits.length) return;
+            const obj = hits[0].object;
+            if (obj === eventHorizon) {
+                easterEggActive = true; easterEggTimer = 2.5;
+                bloomTargetStrength = 7.0;
+            } else if (obj === accretionDisk) {
+                const v = Math.round(30000 / Math.sqrt(2.8));
+                showTooltip('Velocidad orbital: ~' + v.toLocaleString() + ' km/s', e.clientX, e.clientY);
+                setTimeout(hideTooltip, 2500);
+            } else if (obj === relativisticJets) {
+                jetMat.opacity = jetMat.opacity > 0.5 ? 0.0 : 0.9;
+                showTooltip('Jets: ' + (jetMat.opacity > 0.5 ? 'Visibles' : 'Ocultos'), e.clientX, e.clientY);
+                setTimeout(hideTooltip, 1500);
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            mouseVec.x = (e.clientX/window.innerWidth)*2 - 1;
+            mouseVec.y = -(e.clientY/window.innerHeight)*2 + 1;
+            const vecT = new THREE.Vector3(mouseVec.x, mouseVec.y, 0.5).unproject(camera);
+            const dir = vecT.sub(camera.position).normalize();
+            mouseWorld.copy(camera.position).addScaledVector(dir, -camera.position.z / dir.z);
+            raycaster.setFromCamera(mouseVec, camera);
+            const hits = raycaster.intersectObjects([accretionDisk, eventHorizon, relativisticJets], true);
+            canvas.style.cursor = hits.length ? 'pointer' : 'default';
+        });
+
+        // ═══════════════════════════════════════════════════════
+        // DRAG & ROTATE WITH INERTIA
+        // ═══════════════════════════════════════════════════════
+        let isDragging = false;
+        let prevPointer = { x:0, y:0 };
+        let angVel = { x:0, y:0 };
+        const inertiaDecay = 0.91;
+        let dragBloomBoost = 0;
+
+        canvas.addEventListener('pointerdown', (e) => {
+            isDragging = true; prevPointer = { x:e.clientX, y:e.clientY }; angVel = { x:0, y:0 };
+        });
+        canvas.addEventListener('pointermove', (e) => {
+            if (!isDragging || currentAvatarState === 'processing') return;
+            angVel.y = (e.clientX - prevPointer.x) * 0.008;
+            angVel.x = -(e.clientY - prevPointer.y) * 0.008;
+            coreGroup.rotation.y += angVel.y;
+            coreGroup.rotation.x += angVel.x;
+            dragBloomBoost = 0.5;
+            prevPointer = { x:e.clientX, y:e.clientY };
+        });
+        canvas.addEventListener('pointerup',    () => { isDragging = false; });
+        canvas.addEventListener('pointerleave', () => { isDragging = false; });
+
+        // Touch pinch-to-zoom
+        let lastPinchDist = 0;
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length===2) lastPinchDist = Math.hypot(
+                e.touches[0].clientX-e.touches[1].clientX,
+                e.touches[0].clientY-e.touches[1].clientY);
+        }, {passive:true});
+        canvas.addEventListener('touchmove', (e) => {
+            if (e.touches.length===2) {
+                const dtch = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+                zoomConfig.target = Math.max(5, Math.min(15, zoomConfig.target + (lastPinchDist-dtch)*0.03));
+                lastPinchDist = dtch;
+            }
+        }, {passive:true});
+
+        // ═══════════════════════════════════════════════════════
+        // ZOOM CONTROLLER
+        // ═══════════════════════════════════════════════════════
+        const zoomConfig = { current:12, target:12, speed:0.04 };
+
+        // ═══════════════════════════════════════════════════════
+        // FPS MONITOR (adaptive quality)
+        // ═══════════════════════════════════════════════════════
+        let fpsCount=0, fpsFrames=0, fpsLastTime=performance.now();
+        function updateFPS() {
+            fpsFrames++;
+            const now = performance.now();
+            if (now - fpsLastTime >= 1000) {
+                fpsCount = fpsFrames; fpsFrames = 0; fpsLastTime = now;
+                if (fpsCount < 45) { bloomPass.strength = Math.max(1.2, bloomPass.strength*0.85); lensingPass.enabled=false; }
+                else if (fpsCount >= 55) lensingPass.enabled = true;
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // STATE MANAGEMENT
+        // ═══════════════════════════════════════════════════════
         let currentAvatarState = 'idle';
-        let audioScale = 1.0;
+        let audioScale = 1.0, audioDataArray = null;
+        let mouseX=0, mouseY=0, targetX=0, targetY=0;
+        let processingWobble=0, bloomTargetStrength=1.8;
+
+        const stateCfg = {
+            idle:       { ring:0xffffff, halo:0xffffff, glow:0x888888, bloom:1.8, jetOp:0.0, zoom:12, lensStr:0.055 },
+            processing: { ring:0xffffff, halo:0xdddddd, glow:0x888888, bloom:3.5, jetOp:0.85, zoom:8,  lensStr:0.08  },
+            speaking:   { ring:0xffffff, halo:0xffffff, glow:0xaaaaaa, bloom:4.2, jetOp:0.0,  zoom:10, lensStr:0.055 },
+            listening:  { ring:0xcccccc, halo:0xcccccc, glow:0x666666, bloom:3.0, jetOp:0.0,  zoom:11, lensStr:0.04  },
+            error:      { ring:0xff3333, halo:0xff3333, glow:0xff3333, bloom:4.5, jetOp:0.0,  zoom:13, lensStr:0.055 }
+        };
 
         window.update3DAvatar = function(state, dataArray, avgVol) {
             currentAvatarState = state;
-            if (state === 'speaking') {
-                audioScale = 1 + (avgVol / 256) * 0.8;
-                outerMat.color.setHex(0xffffff);
-                innerMat.color.setHex(0xffffff);
-                bloomPass.strength = 4.0;
-            } else if (state === 'idle') {
-                audioScale = 1;
-                outerMat.color.setHex(0x888888);
-                innerMat.color.setHex(0xaaaaaa);
-                bloomPass.strength = 2.0;
-            } else if (state === 'processing') {
-                audioScale = 1.15;
-                outerMat.color.setHex(0xdddddd);
-                innerMat.color.setHex(0xdddddd);
-                bloomPass.strength = 3.0;
-            } else if (state === 'error') {
-                audioScale = 1.0;
-                outerMat.color.setHex(0xff3333);
-                innerMat.color.setHex(0xff3333);
-                bloomPass.strength = 4.5;
+            audioDataArray     = dataArray;
+            if (state==='speaking') {
+                audioScale = 1 + (avgVol/256)*0.9;
+                lensingPass.uniforms.uAudioStrength.value = (avgVol/256)*0.05;
+            } else if (state==='listening') {
+                audioScale = 1 + (avgVol/256)*0.8;
+                lensingPass.uniforms.uAudioStrength.value = 0;
+            } else {
+                audioScale = state==='processing' ? 1.1 : 1.0;
+                lensingPass.uniforms.uAudioStrength.value = 0;
             }
+            const cfg = stateCfg[state] || stateCfg.idle;
+            ringMat.color.setHex(cfg.ring);
+            haloMat.color.setHex(cfg.halo);
+            glowMat.color.setHex(cfg.glow);
+            bloomTargetStrength  = cfg.bloom;
+            jetMat.opacity       = cfg.jetOp;
+            zoomConfig.target    = cfg.zoom;
+            lensingPass.uniforms.uStrength.value = cfg.lensStr;
         };
 
-        let mouseX = 0; let mouseY = 0;
-        let targetX = 0; let targetY = 0;
-
-        document.addEventListener('mousemove', (e) => {
-            mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
-            mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
-            
-            mouseVec.x = (e.clientX / window.innerWidth) * 2 - 1;
-            mouseVec.y = -(e.clientY / window.innerHeight) * 2 + 1;
-        });
-
-        function resize() {
-            const w = window.innerWidth;
-            const h = window.innerHeight;
-            renderer.setSize(w, h);
-            composer.setSize(w, h);
-            camera.aspect = w / h;
-            camera.updateProjectionMatrix();
-        }
-        window.addEventListener('resize', resize);
-        resize();
-
+        // ═══════════════════════════════════════════════════════
+        // ANIMATION LOOP
+        // ═══════════════════════════════════════════════════════
         const clock = new THREE.Clock();
+
+        function applyInertia(dt) {
+            if (!isDragging) {
+                coreGroup.rotation.y += angVel.y;
+                coreGroup.rotation.x += angVel.x;
+                const df = Math.pow(inertiaDecay, dt*60);
+                angVel.x *= df; angVel.y *= df;
+            }
+            dragBloomBoost *= 0.9;
+        }
 
         function animate() {
             requestAnimationFrame(animate);
             const elapsed = clock.getElapsedTime();
+            const dt = Math.min(clock.getDelta(), 0.05);
 
-            targetX += (mouseX - targetX) * 0.04;
-            targetY += (mouseY - targetY) * 0.04;
+            updateFPS();
 
-            // Interactiveness check
-            raycaster.setFromCamera(mouseVec, camera);
-            const intersects = raycaster.intersectObjects([outerMesh, innerMesh, solidMesh]);
-            isHovered = intersects.length > 0;
-            
-            // Smoothly approach 1 or 0
-            hoverFactor += ((isHovered ? 1 : 0) - hoverFactor) * 0.1;
+            // Smooth bloom toward target
+            bloomPass.strength += (bloomTargetStrength + dragBloomBoost - bloomPass.strength) * 0.06;
 
-            // Background rotation
-            points.rotation.y = elapsed * 0.01 + targetX * 0.1;
-            points.rotation.x = targetY * 0.1;
+            // Lensing time uniform
+            lensingPass.uniforms.uTime.value = elapsed;
 
-            // Rings animation
-            rings.forEach((r, idx) => {
-                r.mesh.rotation.x += r.speedX * (1 + hoverFactor * 5);
-                r.mesh.rotation.y += r.speedY * (1 + hoverFactor * 5);
-                r.mesh.scale.setScalar(1 + hoverFactor * 0.2);
-                r.mesh.material.opacity = 0.4 + hoverFactor * 0.4;
-                if(isHovered) r.mesh.material.color.setHex(0xffffff);
-                else r.mesh.material.color.setHex(0xaaaaaa);
-            });
+            // Event horizon shader time + Hawking expand
+            horizonMat.uniforms.time.value = elapsed;
+            horizonMat.uniforms.hawkingExpand.value = currentAvatarState==='speaking' ? (audioScale-1)*0.8 : 0;
 
-            // Avatar Animation
-            if (currentAvatarState === 'processing') {
-                outerMesh.rotation.y += 0.02; outerMesh.rotation.x += 0.02;
-                innerMesh.rotation.y -= 0.03; innerMesh.rotation.x -= 0.03;
+            // Smooth mouse lag
+            const lerpFactor = 1 - Math.exp(-2.5*dt);
+            targetX += (mouseX - targetX) * lerpFactor;
+            targetY += (mouseY - targetY) * lerpFactor;
+
+            // Hover proximity factor
+            const distTP = Math.hypot(mouseWorld.x - coreGroup.position.x, mouseWorld.y - coreGroup.position.y);
+            const hoverFactor = Math.max(0, 1.0 - distTP / 8.0);
+
+            // Group rotation by state
+            if (currentAvatarState==='processing' && !isDragging) {
+                processingWobble += dt * 2.5;
+                coreGroup.rotation.y  = elapsed * 0.8;
+                coreGroup.rotation.z  = Math.sin(processingWobble*2.0)*0.12;
+                coreGroup.rotation.x  = Math.cos(processingWobble*1.5)*0.08;
             } else {
-                // Slower, sadder movements
-                outerMesh.rotation.y += 0.003; outerMesh.rotation.x += 0.001;
-                innerMesh.rotation.y -= 0.005; innerMesh.rotation.x -= 0.002;
+                applyInertia(dt);
+                if (Math.abs(angVel.x)<0.0001 && Math.abs(angVel.y)<0.0001) {
+                    coreGroup.rotation.z += (0 - coreGroup.rotation.z)*0.03;
+                }
             }
 
-            // Wave & Hover Deformation
-            let waveIntensity = 0.1;
-            let waveSpeed = 0.5; // Slower, melancholy
-            let waveFrequency = 2.0;
-
-            if (currentAvatarState === 'processing') {
-                waveIntensity = 0.5; 
-                waveSpeed = 3.0;
-                waveFrequency = 4.0;
-            } else if (currentAvatarState === 'speaking') {
-                waveIntensity = 0.3 + (audioScale - 1) * 0.6;
-                waveSpeed = 1.5 + (audioScale - 1) * 4.0;
-                waveFrequency = 3.0;
+            // Easter egg (horizon click)
+            if (easterEggActive) {
+                easterEggTimer -= dt;
+                coreGroup.rotation.y += 0.15;
+                if (easterEggTimer<=0) {
+                    easterEggActive=false;
+                    bloomTargetStrength = currentAvatarState==='processing' ? 3.5 : 1.8;
+                }
             }
 
-            // Apply hover breaking effect to inner mesh (breaks in half / splinters)
-            for(let i=0; i<posAttrInner.count; i++) {
-                let v = vertexDataInner[i];
-                let dir = v.clone().normalize();
-                
-                let chaoticNoise = Math.sin(dir.x * 20 + elapsed * 10) * Math.cos(dir.y * 20 + elapsed * 10);
-                let breakDisplacement = hoverFactor * (1.5 + chaoticNoise * 1.5);
-                
-                // Separate in halves along X axis
-                let halfSplit = Math.sign(dir.x) * hoverFactor * 2.5;
-
-                let finalDist = 2.5 + breakDisplacement;
-                posAttrInner.setXYZ(i, dir.x * finalDist + halfSplit, dir.y * finalDist, dir.z * finalDist);
-            }
-            posAttrInner.needsUpdate = true;
-
-            // Apply wave to outer mesh
-            for(let i=0; i<posAttrOuter.count; i++) {
-                let v = vertexDataOuter[i];
-                let dir = v.clone().normalize();
-                
-                let noise = Math.sin(dir.x * waveFrequency + elapsed * waveSpeed) 
-                          * Math.sin(dir.y * waveFrequency + elapsed * waveSpeed)
-                          * Math.cos(dir.z * waveFrequency + elapsed * waveSpeed);
-                
-                let hoverNoise = Math.random() * hoverFactor * 0.5;
-                
-                let displacement = 3.8 + noise * waveIntensity + hoverFactor * 1.0 + hoverNoise;
-                posAttrOuter.setXYZ(i, dir.x * displacement, dir.y * displacement, dir.z * displacement);
-            }
-            posAttrOuter.needsUpdate = true;
-
-            // Smooth scale transition
-            let targetScale;
-            if (currentAvatarState === 'speaking') {
-                targetScale = audioScale + hoverFactor * 0.2;
+            // Photon ring pulsation
+            if (currentAvatarState==='processing') {
+                photonRingMat.opacity = 0.42 + Math.sin(elapsed*18)*0.25;
+            } else if (currentAvatarState==='speaking' && audioDataArray) {
+                const vol = audioDataArray.reduce((a,b)=>a+b,0)/(audioDataArray.length*255);
+                photonRingMat.opacity = 0.32 + vol*0.45;
             } else {
-                const pulse = 1 + Math.sin(elapsed * 1.5) * 0.04;
-                targetScale = (currentAvatarState === 'processing' ? 1.05 : pulse) + hoverFactor * 0.1;
+                photonRingMat.opacity = 0.26 + Math.sin(elapsed*1.8)*0.12;
             }
-            coreGroup.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.05);
-            
-            if (currentAvatarState === 'error') {
-                coreGroup.position.x = -12 + (Math.random() - 0.5) * 0.5;
-                coreGroup.position.y = (Math.random() - 0.5) * 0.5;
+            photonRing.rotation.z = elapsed * 0.28;
+
+            // Accretion disk — Keplerian rotation + perturbations
+            const dSpeed = currentAvatarState==='processing' ? 0.9 : currentAvatarState==='speaking' ? 0.55 : 0.28;
+            accretionDisk.rotation.z += dSpeed * dt * 0.6;
+            const pertAmp  = currentAvatarState==='processing' ? 0.35 : 0.12;
+            const pertFreq = currentAvatarState==='processing' ? 3.5  : 1.2;
+            diskMat.emissiveIntensity = (currentAvatarState==='speaking' && audioDataArray)
+                ? 0.5 + audioDataArray.reduce((a,b)=>a+b,0)/(audioDataArray.length*255)*0.6
+                : 0.62 + Math.sin(elapsed*pertFreq)*pertAmp;
+
+            // Particle ring physics
+            const ringPosAttr = accretionRing.geometry.attributes.position;
+            const wc = new THREE.Vector3(mouseWorld.x, mouseWorld.y, 0);
+            const lc = wc.clone().sub(coreGroup.position);
+            lc.applyMatrix4(new THREE.Matrix4().makeRotationX(-tiltedGroup.rotation.x)
+                .multiply(new THREE.Matrix4().makeRotationY(-tiltedGroup.rotation.y)));
+
+            const stiff=10, damp=0.80, inflR=1.6, maxD=0.7;
+            const el2=elapsed*2, el5=elapsed*5, el7=elapsed*7, el10=elapsed*10, el12=elapsed*12, el15=elapsed*15;
+
+            for (let i=0; i<RING_PARTICLES; i++) {
+                const d = ringCustomData[i];
+                if (currentAvatarState==='processing') {
+                    d.angle += d.speed * (4.5+Math.sin(el2+d.angle)*1.5) * dt;
+                    d.radius -= (2.5+Math.sin(d.angle*3+el5)) * dt * d.speed;
+                    if (d.radius < innerRadius) { d.radius=outerRadius-Math.random()*2.5; d.angle+=(Math.random()-0.5)*0.6; }
+                    const lw = Math.sin(d.radius*2.5-el12)*0.2;
+                    ringPosAttr.setXYZ(i, Math.cos(d.angle)*d.radius, d.yOffset+lw, Math.sin(d.angle)*d.radius);
+
+                } else if (currentAvatarState==='speaking' && audioDataArray) {
+                    d.radius=d.originalRadius; d.angle+=d.speed*1.1*dt;
+                    const ai=Math.floor((d.angle/(Math.PI*2))*audioDataArray.length)%audioDataArray.length;
+                    const av=audioDataArray[ai]/255;
+                    const expR = d.radius + Math.sin(d.radius*0.8-el10)*av*1.2 + Math.cos(d.angle*3+el7)*av*0.5;
+                    ringPosAttr.setXYZ(i,
+                        Math.cos(d.angle)*expR, d.yOffset + Math.sin(d.radius*1.5-el15)*av*1.5, Math.sin(d.angle)*expR);
+
+                } else if (currentAvatarState==='listening') {
+                    d.radius=d.originalRadius; d.angle+=d.speed*dt;
+                    const pulse=Math.sin(d.angle*4+el10)*(audioScale-1)*2;
+                    ringPosAttr.setXYZ(i, Math.cos(d.angle)*(d.radius+pulse), d.yOffset, Math.sin(d.angle)*(d.radius+pulse));
+
+                } else if (currentAvatarState==='error') {
+                    let ex=ringPosAttr.getX(i)+(Math.random()-0.5)*0.3;
+                    let ey=ringPosAttr.getY(i)+(Math.random()-0.5)*0.3;
+                    let ez=ringPosAttr.getZ(i)+(Math.random()-0.5)*0.3;
+                    const dv=Math.sqrt(ex*ex+ey*ey+ez*ez);
+                    if (dv>12||dv<1) { ex=Math.cos(d.angle)*d.radius; ez=Math.sin(d.angle)*d.radius; ey=d.yOffset; }
+                    ringPosAttr.setXYZ(i, ex, ey, ez);
+
+                } else {
+                    // IDLE: Keplerian orbit + mouse dodge spring-damper
+                    d.angle += d.speed*dt;
+                    const ox=Math.cos(d.angle)*d.originalRadius, oz=Math.sin(d.angle)*d.originalRadius, oy=d.yOffset;
+                    const cdx=ox-lc.x, cdy=oy-lc.y, cdz=oz-lc.z;
+                    const dc=Math.sqrt(cdx*cdx+cdy*cdy+cdz*cdz+0.001);
+                    let tx=0, ty=0, tz=0;
+                    if (dc<inflR) {
+                        const t=dc/inflR, sm=1-(t*t*(3-2*t)), dp=sm*maxD, inv=1/(dc+0.001);
+                        tx=cdx*inv*dp; ty=cdy*inv*dp*0.3; tz=cdz*inv*dp;
+                    }
+                    d.svx+=(tx-d.dodgeX)*stiff*dt; d.svy+=(ty-d.dodgeY)*stiff*dt; d.svz+=(tz-d.dodgeZ)*stiff*dt;
+                    const dfr=Math.pow(damp,dt*60);
+                    d.svx*=dfr; d.svy*=dfr; d.svz*=dfr;
+                    d.dodgeX+=d.svx*dt; d.dodgeY+=d.svy*dt; d.dodgeZ+=d.svz*dt;
+                    ringPosAttr.setXYZ(i, ox+d.dodgeX, oy+d.dodgeY, oz+d.dodgeZ);
+                }
+            }
+            ringPosAttr.needsUpdate = true;
+
+            // Lensed halo physics
+            const haloPosAttr = lensedHalo.geometry.attributes.position;
+            const el3=elapsed*3, el6=elapsed*6, el4=elapsed*4, el8=elapsed*8;
+
+            for (let i=0; i<HALO_PARTICLES; i++) {
+                const d=haloCustomData[i];
+                if (currentAvatarState==='processing') {
+                    d.angle += d.speed*(5+Math.sin(el3+i*0.01)*2)*dt;
+                    const breathe=1+Math.sin(el6+d.angle*2)*0.25;
+                    haloPosAttr.setXYZ(i, Math.cos(d.angle)*d.originalRadius*breathe, Math.sin(d.angle)*d.originalRadius*breathe, d.zOffset+Math.sin(el4+i)*0.1);
+                } else if (currentAvatarState==='speaking' && audioDataArray) {
+                    d.angle+=d.speed*1.3*dt;
+                    const hai=Math.floor((d.angle/(Math.PI*2))*audioDataArray.length)%audioDataArray.length;
+                    const hav=audioDataArray[hai]/255;
+                    const br=d.originalRadius+hav*2.0+Math.sin(el8+d.angle)*hav*0.6;
+                    haloPosAttr.setXYZ(i, Math.cos(d.angle)*br, Math.sin(d.angle)*br, d.zOffset);
+                } else if (currentAvatarState==='listening') {
+                    d.angle+=d.speed*dt;
+                    const vibe=Math.sin(d.angle*8+elapsed*15)*(audioScale-1)*1.5;
+                    haloPosAttr.setXYZ(i, Math.cos(d.angle)*(d.radius+vibe), Math.sin(d.angle)*(d.radius+vibe), d.zOffset);
+                } else if (currentAvatarState==='error') {
+                    haloPosAttr.setXYZ(i,
+                        haloPosAttr.getX(i)+(Math.random()-0.5)*0.2,
+                        haloPosAttr.getY(i)+(Math.random()-0.5)*0.2,
+                        haloPosAttr.getZ(i)+(Math.random()-0.5)*0.2);
+                } else {
+                    d.angle+=d.speed*dt;
+                    const breathe=1+hoverFactor*0.12*Math.sin(elapsed*2.5+d.angle);
+                    haloPosAttr.setXYZ(i, Math.cos(d.angle)*d.radius*breathe, Math.sin(d.angle)*d.radius*breathe, d.zOffset);
+                }
+            }
+            haloPosAttr.needsUpdate = true;
+
+            // Relativistic jets — helicoidal animation
+            const jetPosAttr = relativisticJets.geometry.attributes.position;
+            const showJets   = currentAvatarState==='processing';
+            for (let i=0; i<JET_PARTICLES; i++) {
+                const d=jetCustomData[i];
+                const sign=d.direction;
+                const twistAmp=showJets?0.22:0.04;
+                const helixA=elapsed*(showJets?6.0:1.5)+d.helixPhase;
+                let yPos=jetPosAttr.getY(i);
+                yPos+=sign*(showJets ? d.speed*(1+Math.sin(elapsed*5+i*0.05)*0.3) : d.speed*0.25)*dt;
+                if (sign>0&&yPos>6.5) yPos=0.8;
+                if (sign<0&&yPos<-6.5) yPos=-0.8;
+                const coneR=0.04+Math.abs(yPos)*0.042;
+                jetPosAttr.setXYZ(i,
+                    Math.cos(helixA+d.theta)*coneR*(1+twistAmp*Math.sin(elapsed*3)),
+                    yPos,
+                    Math.sin(helixA+d.theta)*coneR*(1+twistAmp*Math.cos(elapsed*2))
+                );
+            }
+            jetPosAttr.needsUpdate = true;
+
+            // Speaking shockwave rings
+            if (currentAvatarState==='speaking' && elapsed-lastShockwaveTime>0.22) {
+                spawnShockwave(); lastShockwaveTime=elapsed;
+            }
+            for (let ri=shockwaveRings.length-1; ri>=0; ri--) {
+                const r=shockwaveRings[ri];
+                r.userData.age+=dt;
+                const prog=r.userData.age/r.userData.maxAge;
+                r.scale.setScalar(r.userData.speed*r.userData.age*0.5+1);
+                r.material.opacity=0.7*(1-prog);
+                r.position.copy(coreGroup.position);
+                if (r.userData.age>=r.userData.maxAge) {
+                    scene.remove(r); r.geometry.dispose(); r.material.dispose();
+                    shockwaveRings.splice(ri,1);
+                }
+            }
+
+            // Scale transitions
+            let tScale;
+            if (currentAvatarState==='speaking'||currentAvatarState==='listening') tScale=audioScale+hoverFactor*0.2;
+            else if (currentAvatarState==='processing') tScale=1.05+Math.sin(elapsed*5)*0.055+hoverFactor*0.15;
+            else tScale=1.0+Math.sin(elapsed*1.5)*0.03+hoverFactor*0.10;
+            coreGroup.scale.lerp(new THREE.Vector3(tScale,tScale,tScale), 1-Math.exp(-3.5*dt));
+
+            // Position drift
+            if (currentAvatarState==='error') {
+                coreGroup.position.x=-4.5+(Math.random()-0.5)*0.4;
+                coreGroup.position.y=(Math.random()-0.5)*0.4;
             } else {
-                coreGroup.position.x += (-12 + targetX * 1.5 - coreGroup.position.x) * 0.05;
-                coreGroup.position.y += (-targetY * 1.5 - coreGroup.position.y) * 0.05;
+                const dX=currentAvatarState==='processing'?Math.sin(elapsed*3)*0.9:0;
+                const dY=currentAvatarState==='processing'?Math.cos(elapsed*2.4)*0.6:0;
+                const pL=1-Math.exp(-3*dt);
+                coreGroup.position.x+=(-4.5+targetX*1.2+dX-coreGroup.position.x)*pL;
+                coreGroup.position.y+=(-targetY*1.2+dY-coreGroup.position.y)*pL;
             }
+
+            // Camera zoom
+            zoomConfig.current += (zoomConfig.target-zoomConfig.current)*zoomConfig.speed;
+            zoomConfig.current  = Math.max(5, Math.min(15, zoomConfig.current));
+            camera.position.z   = zoomConfig.current;
+
+            // Starfield
+            starMaterial.uniforms.time.value = elapsed;
+            starFieldPoints.rotation.y = elapsed*0.002 + targetX*0.03;
+            starFieldPoints.rotation.x = targetY*0.03;
 
             composer.render();
         }
+
         animate();
+
+        // Global mouse tracking
+        document.addEventListener('mousemove', (e) => {
+            mouseX = (e.clientX/window.innerWidth - 0.5)*2;
+            mouseY = (e.clientY/window.innerHeight - 0.5)*2;
+        });
+
+        // Resize handler
+        function resize() {
+            const w=window.innerWidth, h=window.innerHeight;
+            renderer.setSize(w,h); composer.setSize(w,h);
+            bloomPass.setSize(w,h);
+            camera.aspect=w/h; camera.updateProjectionMatrix();
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
     </script>
 </body>
 </html>
