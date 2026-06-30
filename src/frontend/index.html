@@ -775,17 +775,6 @@
         });
         coreGroup.add(new THREE.Mesh(new THREE.SphereGeometry(1.06, 64, 64), glowMat));
 
-        // ── HOVER RING — anillo extra que aparece con el cursor encima ──
-        const hoverRingMat = new THREE.MeshBasicMaterial({
-            color: 0xffffff, transparent: true, opacity: 0.0,
-            blending: THREE.AdditiveBlending, side: THREE.DoubleSide
-        });
-        const hoverRing = new THREE.Mesh(
-            new THREE.TorusGeometry(1.85, 0.02, 12, 96),
-            hoverRingMat
-        );
-        coreGroup.add(hoverRing);
-        let hoverRingScale = 1.0;
 
         // ── PHOTON RING — thin torus at r ≈ 1.5 Schwarzschild ──
         const photonRingMat = new THREE.MeshBasicMaterial({
@@ -1168,35 +1157,15 @@
             targetX += (mouseX - targetX) * lerpFactor;
             targetY += (mouseY - targetY) * lerpFactor;
 
-            // Hover proximity factor (se calcula primero para usarlo en todo)
-            const distTP = Math.hypot(mouseWorld.x - coreGroup.position.x, mouseWorld.y - coreGroup.position.y);
-            const hoverFactor = Math.max(0, 1.0 - distTP / 3.5);
-
-            // Event horizon shader time + Hawking expand reactivo al hover
+            // Event horizon shader time + Hawking expand
             horizonMat.uniforms.time.value = elapsed;
             const hoverHawking = currentAvatarState==='speaking'
                 ? (audioScale-1)*0.8
-                : hoverFactor * 0.35 * (0.7 + Math.sin(elapsed*6)*0.3);
+                : 0;
             horizonMat.uniforms.hawkingExpand.value = hoverHawking;
 
-            // ── HOVER DISTORSION DEL AGUJERO NEGRO ──
-            // El lensing se intensifica con el hover
-            lensingPass.uniforms.uStrength.value +=
-                (lensingPass.uniforms.uStrength.value + hoverFactor*0.02 - lensingPass.uniforms.uStrength.value) * 0.18;
-
-            // Bloom extra solo en hover (sutil)
-            const hoverBloomBoost = hoverFactor * 0.18;
-
-            // Hover ring: aparece y gira al acercarse el cursor
-            const hoverTargetOp = hoverFactor * 0.55;
-            hoverRingMat.opacity += (hoverTargetOp - hoverRingMat.opacity) * 0.18;
-            hoverRingScale += (1.0 + hoverFactor * 0.06 + Math.sin(elapsed*4)*hoverFactor*0.03 - hoverRingScale) * 0.14;
-            hoverRing.scale.setScalar(hoverRingScale);
-            hoverRing.rotation.z = elapsed * 0.55 + hoverFactor * elapsed * 0.8;
-            hoverRing.rotation.x = Math.sin(elapsed * 0.5) * (0.2 + hoverFactor * 0.4);
-
-            // Bloom total suavizado
-            bloomPass.strength += (bloomTargetStrength + dragBloomBoost + hoverBloomBoost - bloomPass.strength) * 0.06;
+            // Bloom total suavizado sin hover
+            bloomPass.strength += (bloomTargetStrength + dragBloomBoost - bloomPass.strength) * 0.06;
 
             // ── ROTACIÓN Y MOVIMIENTO CONTINUO (siempre activo) ──
             if (currentAvatarState==='processing' && !isDragging) {
@@ -1211,15 +1180,11 @@
                 const idleTilt  = currentAvatarState==='speaking' ? 0.06 : 0.03;
 
                 // Rotación Y lenta continua (como planetas)
-                coreGroup.rotation.y += idleSpeed * dt
-                    + angVel.y                            // inercia del drag
-                    + hoverFactor * 0.35 * dt;           // hover acelera la rotación
+                coreGroup.rotation.y += idleSpeed * dt + angVel.y; // inercia del drag
 
                 // Cabeceo suave en X y Z (respiración)
-                const breatheX = Math.sin(elapsed * 0.7 + 1.2) * idleTilt
-                    + hoverFactor * Math.sin(elapsed * 3.5) * 0.12;
-                const breatheZ = Math.sin(elapsed * 0.5) * idleTilt * 0.6
-                    + hoverFactor * Math.cos(elapsed * 4.0) * 0.08;
+                const breatheX = Math.sin(elapsed * 0.7 + 1.2) * idleTilt;
+                const breatheZ = Math.sin(elapsed * 0.5) * idleTilt * 0.6;
 
                 coreGroup.rotation.x += (breatheX - coreGroup.rotation.x) * 0.03;
                 coreGroup.rotation.z += (breatheZ - coreGroup.rotation.z) * 0.03;
@@ -1246,24 +1211,20 @@
                 const vol = audioDataArray.reduce((a,b)=>a+b,0)/(audioDataArray.length*255);
                 photonRingMat.opacity = 0.22 + vol*0.35;
             } else {
-                // Idle: tenue + brilla un poco más cuando el cursor está cerca
-                photonRingMat.opacity = 0.14 + Math.sin(elapsed*1.8)*0.07 + hoverFactor*0.28;
+                photonRingMat.opacity = 0.14 + Math.sin(elapsed*1.8)*0.07;
             }
             photonRing.rotation.z = elapsed * 0.28;
 
-            // Accretion disk — rotación + hover acelera + perturbaciones
-            const hoverSpeedBoost = hoverFactor * 0.45; // hover acelera el disco
+            // Accretion disk — rotación + perturbaciones
             const dSpeed = currentAvatarState==='processing' ? 0.9
                 : currentAvatarState==='speaking' ? 0.55
-                : 0.20 + hoverSpeedBoost;
+                : 0.20;
             accretionDisk.rotation.z += dSpeed * dt * 0.6;
-            const pertAmp  = currentAvatarState==='processing' ? 0.35 : 0.10 + hoverFactor * 0.22;
-            const pertFreq = currentAvatarState==='processing' ? 3.5  : 1.0 + hoverFactor * 2.0;
-            // Emisivo reactivo al hover (disco brilla cuando el cursor está encima)
-            const hoverEmissive = hoverFactor * 0.30 * (0.8 + Math.sin(elapsed*5)*0.2);
+            const pertAmp  = currentAvatarState==='processing' ? 0.35 : 0.10;
+            const pertFreq = currentAvatarState==='processing' ? 3.5  : 1.0;
             diskMat.emissiveIntensity = (currentAvatarState==='speaking' && audioDataArray)
                 ? 0.32 + audioDataArray.reduce((a,b)=>a+b,0)/(audioDataArray.length*255)*0.45
-                : 0.28 + Math.sin(elapsed*pertFreq)*pertAmp + hoverEmissive;
+                : 0.28 + Math.sin(elapsed*pertFreq)*pertAmp;
 
             // Particle ring physics
             const ringPosAttr = accretionRing.geometry.attributes.position;
@@ -1306,20 +1267,11 @@
                     ringPosAttr.setXYZ(i, ex, ey, ez);
 
                 } else {
-                    // IDLE: órbita Kepleriana + ondulación de hover (ripple hacia afuera)
-                    d.angle += d.speed * (1.0 + hoverFactor * 0.6) * dt;
+                    // IDLE: órbita Kepleriana
+                    d.angle += d.speed * dt;
                     const ox=Math.cos(d.angle)*d.originalRadius, oz=Math.sin(d.angle)*d.originalRadius, oy=d.yOffset;
 
-                    // Ripple de hover: onda que se propaga hacia afuera desde el centro
-                    // cada partícula se desplaza radialmente según su ángulo y el tiempo
-                    const hoverWave = hoverFactor
-                        * Math.sin(d.originalRadius * 2.8 - elapsed * 5.0 + d.angle * 0.5)
-                        * 0.20;
-                    const hoverRippleX = (ox / (d.originalRadius + 0.001)) * hoverWave;
-                    const hoverRippleZ = (oz / (d.originalRadius + 0.001)) * hoverWave;
-                    const hoverRippleY = hoverFactor * Math.sin(d.angle * 3 + elapsed * 4) * 0.12;
-
-                    // Spring-damper dodge del mouse (combinado con ripple)
+                    // Spring-damper dodge del mouse
                     const cdx=ox-lc.x, cdy=oy-lc.y, cdz=oz-lc.z;
                     const dc=Math.sqrt(cdx*cdx+cdy*cdy+cdz*cdz+0.001);
                     let tx=0, ty=0, tz=0;
@@ -1332,10 +1284,7 @@
                     d.svx*=dfr; d.svy*=dfr; d.svz*=dfr;
                     d.dodgeX+=d.svx*dt; d.dodgeY+=d.svy*dt; d.dodgeZ+=d.svz*dt;
 
-                    ringPosAttr.setXYZ(i,
-                        ox + d.dodgeX + hoverRippleX,
-                        oy + d.dodgeY + hoverRippleY,
-                        oz + d.dodgeZ + hoverRippleZ);
+                    ringPosAttr.setXYZ(i, ox + d.dodgeX, oy + d.dodgeY, oz + d.dodgeZ);
                 }
             }
             ringPosAttr.needsUpdate = true;
@@ -1367,7 +1316,7 @@
                         haloPosAttr.getZ(i)+(Math.random()-0.5)*0.2);
                 } else {
                     d.angle+=d.speed*dt;
-                    const breathe=1+hoverFactor*0.12*Math.sin(elapsed*2.5+d.angle);
+                    const breathe=1.0;
                     haloPosAttr.setXYZ(i, Math.cos(d.angle)*d.radius*breathe, Math.sin(d.angle)*d.radius*breathe, d.zOffset);
                 }
             }
@@ -1492,9 +1441,9 @@
 
             // Scale transitions
             let tScale;
-            if (currentAvatarState==='speaking'||currentAvatarState==='listening') tScale=audioScale+hoverFactor*0.2;
-            else if (currentAvatarState==='processing') tScale=1.05+Math.sin(elapsed*5)*0.055+hoverFactor*0.15;
-            else tScale=1.0+Math.sin(elapsed*1.5)*0.03+hoverFactor*0.10;
+            if (currentAvatarState==='speaking'||currentAvatarState==='listening') tScale=audioScale;
+            else if (currentAvatarState==='processing') tScale=1.05+Math.sin(elapsed*5)*0.055;
+            else tScale=1.0+Math.sin(elapsed*1.5)*0.03;
             coreGroup.scale.lerp(new THREE.Vector3(tScale,tScale,tScale), 1-Math.exp(-3.5*dt));
 
             // Position drift
