@@ -245,7 +245,7 @@ class AgyBrain:
         if triage_result == "SIMPLE":
             args.extend(["--model", "gpt-5.4-mini", "-c", "model_reasoning_effort=\"low\""])
         else:
-            args.extend(["--model", "gpt-5.4"])
+            args.extend(["--model", "gpt-5.4-mini"])
 
         # Obtener contexto optimizado (recortado y resumido)
         if include_context:
@@ -455,4 +455,3 @@ class AgyBrain:
 
     def _parse_output(self, raw: str) -> str:
         return raw.strip()
-
