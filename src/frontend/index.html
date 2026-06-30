@@ -627,7 +627,9 @@
 
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(window.innerWidth, window.innerHeight),
-            1.8, 0.6, 0.1
+            0.45,   // strength — mucho más bajo para no sobreexponer
+            0.55,   // radius
+            0.55    // threshold — solo píxeles MUY brillantes emiten bloom
         );
 
         // Gravitational Lensing Shader (post-process)
@@ -773,6 +775,18 @@
         });
         coreGroup.add(new THREE.Mesh(new THREE.SphereGeometry(1.06, 64, 64), glowMat));
 
+        // ── HOVER RING — anillo extra que aparece con el cursor encima ──
+        const hoverRingMat = new THREE.MeshBasicMaterial({
+            color: 0xffffff, transparent: true, opacity: 0.0,
+            blending: THREE.AdditiveBlending, side: THREE.DoubleSide
+        });
+        const hoverRing = new THREE.Mesh(
+            new THREE.TorusGeometry(1.85, 0.02, 12, 96),
+            hoverRingMat
+        );
+        coreGroup.add(hoverRing);
+        let hoverRingScale = 1.0;
+
         // ── PHOTON RING — thin torus at r ≈ 1.5 Schwarzschild ──
         const photonRingMat = new THREE.MeshBasicMaterial({
             color: 0xffffff, transparent: true, opacity: 0.45,
@@ -872,7 +886,7 @@
         ringGeo.attributes.position.usage = THREE.DynamicDrawUsage;
 
         const ringMat = new THREE.PointsMaterial({
-            size:0.10, vertexColors:true, transparent:true, opacity:0.75,
+            size:0.07, vertexColors:true, transparent:true, opacity:0.42,
             blending:THREE.AdditiveBlending, sizeAttenuation:true, depthWrite:false
         });
         const accretionRing = new THREE.Points(ringGeo, ringMat);
@@ -1089,14 +1103,14 @@
         let currentAvatarState = 'idle';
         let audioScale = 1.0, audioDataArray = null;
         let mouseX=0, mouseY=0, targetX=0, targetY=0;
-        let processingWobble=0, bloomTargetStrength=1.8;
+        let processingWobble=0, bloomTargetStrength=0.45;
 
         const stateCfg = {
-            idle:       { ring:0xffffff, halo:0xffffff, glow:0x888888, bloom:1.8, jetOp:0.0, zoom:12, lensStr:0.055 },
-            processing: { ring:0xffffff, halo:0xdddddd, glow:0x888888, bloom:3.5, jetOp:0.85, zoom:8,  lensStr:0.08  },
-            speaking:   { ring:0xffffff, halo:0xffffff, glow:0xaaaaaa, bloom:4.2, jetOp:0.0,  zoom:10, lensStr:0.055 },
-            listening:  { ring:0xcccccc, halo:0xcccccc, glow:0x666666, bloom:3.0, jetOp:0.0,  zoom:11, lensStr:0.04  },
-            error:      { ring:0xff3333, halo:0xff3333, glow:0xff3333, bloom:4.5, jetOp:0.0,  zoom:13, lensStr:0.055 }
+            idle:       { ring:0xffffff, halo:0xffffff, glow:0x888888, bloom:0.40, jetOp:0.0,  zoom:12, lensStr:0.045 },
+            processing: { ring:0xffffff, halo:0xdddddd, glow:0x888888, bloom:0.90, jetOp:0.85, zoom:8,  lensStr:0.065 },
+            speaking:   { ring:0xffffff, halo:0xffffff, glow:0xaaaaaa, bloom:1.10, jetOp:0.0,  zoom:10, lensStr:0.045 },
+            listening:  { ring:0xcccccc, halo:0xcccccc, glow:0x666666, bloom:0.70, jetOp:0.0,  zoom:11, lensStr:0.032 },
+            error:      { ring:0xff3333, halo:0xff3333, glow:0xff3333, bloom:1.20, jetOp:0.0,  zoom:13, lensStr:0.045 }
         };
 
         window.update3DAvatar = function(state, dataArray, avgVol) {
@@ -1163,6 +1177,17 @@
             const distTP = Math.hypot(mouseWorld.x - coreGroup.position.x, mouseWorld.y - coreGroup.position.y);
             const hoverFactor = Math.max(0, 1.0 - distTP / 8.0);
 
+            // ── HOVER RING EFFECT ──
+            // Se desvanece suavemente cuando el cursor está cerca
+            const hoverTargetOp = hoverFactor * 0.55;
+            hoverRingMat.opacity += (hoverTargetOp - hoverRingMat.opacity) * 0.08;
+            // Pulso sutil de escala
+            hoverRingScale += (1.0 + hoverFactor * 0.08 + Math.sin(elapsed*3)*hoverFactor*0.04 - hoverRingScale) * 0.06;
+            hoverRing.scale.setScalar(hoverRingScale);
+            // Rotación lenta del anillo de hover
+            hoverRing.rotation.z = elapsed * 0.4;
+            hoverRing.rotation.x = Math.sin(elapsed * 0.6) * 0.3;
+
             // Group rotation by state
             if (currentAvatarState==='processing' && !isDragging) {
                 processingWobble += dt * 2.5;
@@ -1188,12 +1213,13 @@
 
             // Photon ring pulsation
             if (currentAvatarState==='processing') {
-                photonRingMat.opacity = 0.42 + Math.sin(elapsed*18)*0.25;
+                photonRingMat.opacity = 0.35 + Math.sin(elapsed*18)*0.18;
             } else if (currentAvatarState==='speaking' && audioDataArray) {
                 const vol = audioDataArray.reduce((a,b)=>a+b,0)/(audioDataArray.length*255);
-                photonRingMat.opacity = 0.32 + vol*0.45;
+                photonRingMat.opacity = 0.22 + vol*0.35;
             } else {
-                photonRingMat.opacity = 0.26 + Math.sin(elapsed*1.8)*0.12;
+                // Idle: tenue + brilla un poco más cuando el cursor está cerca
+                photonRingMat.opacity = 0.14 + Math.sin(elapsed*1.8)*0.07 + hoverFactor*0.28;
             }
             photonRing.rotation.z = elapsed * 0.28;
 
