@@ -1,14 +1,12 @@
-# Estado Actual de MILO (MILO V3 Intermedio)
+# Estado Actual de MILO (MILO V3 Final)
 
 > **Documento de Contexto para Agentes de IA:** Este archivo contiene la arquitectura exacta, estado actual y tecnologías utilizadas en el proyecto MILO. Lee este documento cuidadosamente antes de proponer cambios arquitectónicos o refactorizaciones.
 
 ## 1. Visión General
-MILO es un asistente personal autónomo y resiliente (estilo Jarvis) que opera a través de una interfaz web conversacional (texto y voz). Originalmente dependía de integraciones directas vía API con Gemini y Anthropic, pero **ha sido refactorizado a una arquitectura "Zero API Keys"**. 
-
-Actualmente, el cerebro de MILO cuenta con una estructura intermedia de transición (V3 Intermedia):
-1.  **Codex CLI (Primario)**: Motor conversacional por defecto. Todos los mensajes generales del usuario entran aquí de manera no interactiva usando `/home/alejandro/.local/bin/codex exec`.
-2.  **Vulcan CLI / `agy` (Invocación Explícita)**: Motor de respaldo e investigación profunda que ya no tiene fallback automático. Se invoca de forma puntual y explícita por el usuario usando triggers concretos (ej. "vulcan, crea un test").
-*Nota sobre OpenClaw:* El daemon local de OpenClaw se encuentra instalado en el puerto 18789, pero ha sido completamente desacoplado del flujo conversacional por defecto de MILO.
+MILO es un asistente personal autónomo y resiliente (estilo Jarvis) que opera a través de una interfaz web conversacional (texto y voz). Opera bajo una arquitectura **"Zero API Keys" y multi-motor resiliente (V3 Final)**:
+1.  **OpenClaw Gateway (Primario)**: Motor conversacional por defecto. Todos los mensajes generales del usuario se enrutan a través del gateway de OpenClaw (`http://127.0.0.1:18789/v1/chat/completions`) utilizando el token de autenticación de MILO y el proveedor local de Google Gemini (`google/gemini-2.5-flash`) configurado mediante la API key gratuita del proyecto.
+2.  **Codex CLI (Fallback)**: Motor conversacional de respaldo. Si OpenClaw está deshabilitado por el circuit breaker o experimenta errores de red/conexión, MILO desvía automáticamente las peticiones de forma transparente a Codex CLI (`/home/alejandro/.local/bin/codex exec`) usando el inicio de sesión OAuth del usuario.
+3.  **Vulcan CLI / `agy` (Invocación Explícita)**: Motor de respaldo e investigación profunda. Se invoca de forma puntual y explícita por el usuario usando triggers concretos (ej. "vulcan, crea un test").
 
 ---
 
@@ -23,7 +21,7 @@ Actualmente, el cerebro de MILO cuenta con una estructura intermedia de transici
     *   Manejo de estado de herramientas y motor activo (`tool_status`).
     *   Auto-creación de skills (`task_patterns`).
     *   Persistencia de historial de conversación y caché de resúmenes (`chat_history`).
-*   **Motor de Inferencia:** `Codex CLI` corriendo localmente (`/home/alejandro/.local/bin/codex exec`) usando el modelo `gpt-5.4-mini` (con reasoning effort `low` por defecto para ahorrar tokens en consultas simples) y escalando dinámicamente a `gpt-5.4` en tareas complejas. Como motor secundario explícito para triggers, MILO ejecuta `Antigravity CLI` (renombrado internamente como **Vulcan**) vía `subprocess.run` con el flag `--dangerously-skip-permissions`.
+*   **Motor de Inferencia:** `OpenClaw Gateway` como motor principal (consultas HTTP a `http://127.0.0.1:18789/v1/chat/completions` con modelo `google/gemini-2.5-flash`), con fallback automático y transparente a `Codex CLI` local (`/home/alejandro/.local/bin/codex exec`) usando el modelo `gpt-5.4-mini` (con reasoning effort `low` por defecto) y escalando dinámicamente a `gpt-5.4` en tareas complejas. Como motor secundario explícito para triggers, MILO ejecuta `Antigravity CLI` (renombrado internamente como **Vulcan**) vía `subprocess.run` con el flag `--dangerously-skip-permissions`.
 *   **Síntesis y Procesamiento de Voz:** Usa un binario local estático de `ffmpeg` (instalado en `.venv/bin/`) para transcodificación de audio. Cuenta con autodetección robusta de formatos de contenedor (.webm, .ogg, .wav, .mp3, .m4a) a partir de bytes mágicos y tipo MIME, control estricto de errores de FFmpeg y limpieza garantizada de archivos temporales. `gTTS` se mantiene como fallback para la síntesis de voz.
 
 ### Frontend
@@ -45,7 +43,7 @@ Actualmente, el cerebro de MILO cuenta con una estructura intermedia de transici
 
 1.  **Fusión de Identidad (`AGENTS.md`):** Antigravity CLI ha adoptado permanentemente la persona y reglas operativas de MILO a nivel global del proyecto.
 2.  **Habilidades Nativas (`milo-core` Skill):** MILO ahora utiliza de manera directa y nativa las herramientas de Antigravity (búsqueda, edición, bash) sin depender de intermediarios de Python (`TOOL_CALL`), operando autónomamente en el espacio de trabajo.
-3.  **AgyBrain Local (Enrutamiento y Triage):** Para las peticiones que ingresan por la interfaz web (`localhost:8000`), el backend utiliza `AgyBrain` para revisar si existe un trigger explícito de Vulcan. Si existe, ejecuta Vulcan de forma aislada con el modo `proceed-in-sandbox` e inyecta el resultado al contexto de Codex. Si no, enruta directamente a Codex CLI. Ante un fallo de Codex, se encola la tarea en SQLite y no hay conmutación silenciosa o cascada a Vulcan.
+3.  **AgyBrain Local (Enrutamiento, Triage y Fallback):** Para las peticiones que ingresan por la interfaz web (`localhost:8000`), el backend utiliza `AgyBrain` para comprobar la presencia de triggers explícitos de Vulcan. Si existe, ejecuta Vulcan de forma aislada e inyecta el resultado al contexto de Codex. Si no, enruta a OpenClaw; si este falla, conmutará a Codex CLI. Si ambos fallan, encola la tarea en SQLite y no realiza cascadas automáticas a Vulcan.
 4.  **Humanización Estricta de Respuestas:** El formateador en `src/services/response_formatter.py` erradica muletillas e introducciones robóticas. Además, se redujo el umbral de activación para la reescritura con LLM de 400 a 250 caracteres, usando un prompt estricto en `AgyBrain` para obtener respuestas concisas de 1-2 oraciones sin formato markdown, optimizadas para voz (TTS).
 
 ---
@@ -75,9 +73,7 @@ El sistema cuenta con un registro centralizado (`TOOL_REGISTRY`) con las siguien
 
 ---
 
-## 6. Puntos Críticos y Fragilidades Conocidas
-
-*   **Dependencia de Codex CLI y API de OpenAI:** Dado que Codex es el motor conversacional principal, MILO depende del estado de red y cuota del servicio OpenAI. Los fallos no se resuelven en cascada a Vulcan para evitar comportamientos confusos, sino que encolan la tarea en SQLite.
+*   **Dependencia del Gateway OpenClaw:** Como motor principal, depende de que el daemon local de OpenClaw (`18789`) esté activo. Si se cae o se deshabilita por circuit breaker, el sistema cuenta con el fallback robusto a Codex CLI.
 *   **Invocaciones de Vulcan:** Vulcan se ejecuta de forma aislada y bajo demanda del usuario, usando el flag `--dangerously-skip-permissions`.
 *   **Persistencia:** La DB SQLite (`milo.db` o `test_milo.db`) es la única fuente de verdad para el estado de las tareas y habilidades. No se usa Redis ni colas en memoria.
 
@@ -87,6 +83,6 @@ El sistema cuenta con un registro centralizado (`TOOL_REGISTRY`) con las siguien
 source .venv/bin/activate
 # Iniciar Servidor (Host en http://localhost:8000)
 python -m src.main
-# Pruebas Unitarias (59/59 pasando)
-python -m pytest tests/
+# Pruebas Unitarias (62/62 pasando)
+.venv/bin/python -m pytest
 ```
