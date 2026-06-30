@@ -7,19 +7,19 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;600;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #03030a;
-            --text-color: #f0f4f8;
-            --panel-bg: rgba(5, 7, 15, 0.6);
-            --border-color: rgba(255, 255, 255, 0.08);
-            /* Avatar States - Ultra Realistic & Melancholic */
-            --idle-color: #4a6fa5;      /* Azul triste y profundo */
-            --process-color: #8b5fbf;   /* Púrpura melancólico */
-            --speak-color: #6fc3df;     /* Azul etéreo */
-            --error-color: #ff3366;     /* Rojo neón desgarrador */
+            --bg-color: #050505;
+            --text-color: #ffffff;
+            --panel-bg: rgba(15, 15, 15, 0.7);
+            --border-color: rgba(255, 255, 255, 0.1);
+            /* Avatar States - Ultra Realistic & Monochrome */
+            --idle-color: #aaaaaa;      /* Gris sobrio */
+            --process-color: #888888;   /* Gris medio */
+            --speak-color: #ffffff;     /* Blanco puro */
+            --error-color: #ff3333;     /* Rojo intenso para errores */
+            --error-glow: rgba(255, 51, 51, 0.4);
 
-
-            --message-user-bg: rgba(255, 255, 255, 0.05);
-            --message-milo-bg: rgba(255, 255, 255, 0.08);
+            --message-user-bg: rgba(255, 255, 255, 0.06);
+            --message-milo-bg: rgba(255, 255, 255, 0.1);
         }
 
         body, html {
@@ -552,7 +552,7 @@
 
         const scene = new THREE.Scene();
         // Add subtle fog for depth
-        scene.fog = new THREE.FogExp2(0x020205, 0.015);
+        scene.fog = new THREE.FogExp2(0x050505, 0.015);
 
         const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.z = 35; // slightly further back for larger objects
@@ -568,9 +568,9 @@
         const PARTICLE_COUNT = 2500;
         const positions = new Float32Array(PARTICLE_COUNT * 3);
         const colors = new Float32Array(PARTICLE_COUNT * 3);
-        const colorA = new THREE.Color('#2a4b7c'); // Melancholic blue
-        const colorB = new THREE.Color('#4d3b6e'); // Deep purple
-        const colorC = new THREE.Color('#1a2639'); // Dark slate
+        const colorA = new THREE.Color('#ffffff'); // White
+        const colorB = new THREE.Color('#888888'); // Gray
+        const colorC = new THREE.Color('#333333'); // Dark gray
 
         for (let i = 0; i < PARTICLE_COUNT; i++) {
             const i3 = i * 3;
@@ -602,7 +602,7 @@
         // Inner core (shattered glass look)
         const innerGeo = new THREE.IcosahedronGeometry(2.5, 2);
         const innerMat = new THREE.MeshBasicMaterial({ 
-            color: 0x4a6fa5, wireframe: true, transparent: true, opacity: 0.7,
+            color: 0xffffff, wireframe: true, transparent: true, opacity: 0.7,
             blending: THREE.AdditiveBlending
         });
         const innerMesh = new THREE.Mesh(innerGeo, innerMat);
@@ -610,7 +610,7 @@
         // Outer wave sphere (larger)
         const outerGeo = new THREE.SphereGeometry(3.8, 128, 128);
         const outerMat = new THREE.MeshBasicMaterial({ 
-            color: 0x224488, wireframe: true, transparent: true, opacity: 0.2,
+            color: 0xaaaaaa, wireframe: true, transparent: true, opacity: 0.2,
             blending: THREE.AdditiveBlending
         });
         const outerMesh = new THREE.Mesh(outerGeo, outerMat);
@@ -630,14 +630,14 @@
 
         // Solid core (dark void)
         const solidGeo = new THREE.SphereGeometry(1.8, 64, 64);
-        const solidMat = new THREE.MeshBasicMaterial({ color: 0x050510 });
+        const solidMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
         const solidMesh = new THREE.Mesh(solidGeo, solidMat);
 
         // Orbital rings for futuristic look
         const rings = [];
         for(let i=0; i<3; i++) {
             const ringGeo = new THREE.TorusGeometry(5 + i*0.8, 0.02, 16, 100);
-            const ringMat = new THREE.MeshBasicMaterial({ color: 0x6fc3df, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending });
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending });
             const ring = new THREE.Mesh(ringGeo, ringMat);
             ring.rotation.x = Math.random() * Math.PI;
             ring.rotation.y = Math.random() * Math.PI;
@@ -663,23 +663,23 @@
             currentAvatarState = state;
             if (state === 'speaking') {
                 audioScale = 1 + (avgVol / 256) * 0.8;
-                outerMat.color.setHex(0x6fc3df);
-                innerMat.color.setHex(0x6fc3df);
+                outerMat.color.setHex(0xffffff);
+                innerMat.color.setHex(0xffffff);
                 bloomPass.strength = 4.0;
             } else if (state === 'idle') {
                 audioScale = 1;
-                outerMat.color.setHex(0x224488);
-                innerMat.color.setHex(0x4a6fa5);
+                outerMat.color.setHex(0x888888);
+                innerMat.color.setHex(0xaaaaaa);
                 bloomPass.strength = 2.0;
             } else if (state === 'processing') {
                 audioScale = 1.15;
-                outerMat.color.setHex(0x8b5fbf);
-                innerMat.color.setHex(0x8b5fbf);
+                outerMat.color.setHex(0xdddddd);
+                innerMat.color.setHex(0xdddddd);
                 bloomPass.strength = 3.0;
             } else if (state === 'error') {
                 audioScale = 1.0;
-                outerMat.color.setHex(0xff3366);
-                innerMat.color.setHex(0xff3366);
+                outerMat.color.setHex(0xff3333);
+                innerMat.color.setHex(0xff3333);
                 bloomPass.strength = 4.5;
             }
         };
@@ -734,7 +734,7 @@
                 r.mesh.scale.setScalar(1 + hoverFactor * 0.2);
                 r.mesh.material.opacity = 0.4 + hoverFactor * 0.4;
                 if(isHovered) r.mesh.material.color.setHex(0xffffff);
-                else r.mesh.material.color.setHex(0x6fc3df);
+                else r.mesh.material.color.setHex(0xaaaaaa);
             });
 
             // Avatar Animation
