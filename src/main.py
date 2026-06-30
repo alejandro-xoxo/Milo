@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from src.services.gemini_service import generate_response
 from src.config import HOST, PORT
@@ -121,6 +121,25 @@ def get_task_status_endpoint(task_id: int):
         "error": row["error"]
     }
 
+@app.post("/chat/audio", response_model=ChatResponse)
+async def chat_audio_endpoint(file: UploadFile = File(...)):
+    """
+    Endpoint that accepts an audio file (e.g., WAV), transcribes and processes it with Gemini,
+    runs tool calls, and returns the response.
+    """
+    from src.services.gemini_service import generate_audio_response
+    try:
+        audio_bytes = await file.read()
+        mime_type = file.content_type or "audio/wav"
+        
+        result = generate_audio_response(audio_bytes, mime_type=mime_type)
+        
+        return ChatResponse(
+            response=result["response"],
+            execution_log=result["execution_log"]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing audio chat: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

@@ -245,3 +245,87 @@ def generate_response(prompt: str) -> dict:
         else:
             logger.error(f"Gemini encountered a non-quota error: {e}")
             raise e
+
+def generate_audio_response(audio_bytes: bytes, mime_type: str = "audio/wav") -> dict:
+    """
+    Sends an audio command to Gemini with custom tools, handles tool calls in a loop,
+    and returns the final response and tool execution log.
+    """
+    client = get_gemini_client()
+    tools_list = list(TOOL_REGISTRY.values())
+    
+    chat = client.chats.create(
+        model="gemini-2.5-flash",
+        config=types.GenerateContentConfig(
+            tools=tools_list,
+            temperature=0.3,
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+            system_instruction=(
+                "You are MILO, a highly advanced personal assistant. "
+                "You have access to tools for listing files, reading files, and checking the weather. "
+                "Always check the files in the workspace using list_workspace_files if the user asks "
+                "about project files, configuration, or plans. "
+                "You are receiving a voice prompt. Answer in a natural, conversational way in Spanish."
+            )
+        )
+    )
+    
+    execution_log = []
+    
+    # Construct the audio part
+    audio_part = types.Part.from_bytes(
+        data=audio_bytes,
+        mime_type=mime_type
+    )
+    
+    # Send the audio part with a text instruction to force Spanish conversational response
+    response = chat.send_message(
+        [
+            audio_part,
+            "Responde en español de forma directa al comando de voz, ejecutando herramientas si es necesario."
+        ]
+    )
+    
+    max_turns = 10
+    turns = 0
+    
+    while turns < max_turns:
+        if not response.candidates or not response.candidates[0].content or not response.candidates[0].content.parts:
+            break
+            
+        function_call = None
+        for part in response.candidates[0].content.parts:
+            if part.function_call:
+                function_call = part.function_call
+                break
+                
+        if not function_call:
+            break
+            
+        fn_name = function_call.name
+        fn_args = function_call.args
+        
+        logger.info(f"[Gemini Audio] Executing tool: {fn_name} with args: {fn_args}")
+        execution_log.append({"tool": fn_name, "args": dict(fn_args) if fn_args else {}})
+        
+        if fn_name in TOOL_REGISTRY:
+            from src.services.circuit_breaker import execute_tool_with_resilience
+            result_value = execute_tool_with_resilience(fn_name, TOOL_REGISTRY[fn_name], **fn_args)
+            result = {"result": result_value}
+        else:
+            result = {"error": f"Tool '{fn_name}' is not registered."}
+            
+        response = chat.send_message(
+            types.Part.from_function_response(
+                name=fn_name,
+                response=result
+            )
+        )
+        turns += 1
+        
+    return {
+        "response": response.text if response.text else "No he podido generar una respuesta de voz.",
+        "execution_log": execution_log,
+        "provider": "gemini"
+    }
+
