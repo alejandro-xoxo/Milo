@@ -56,7 +56,7 @@
         }
 
         .avatar-container {
-            position: relative; width: 250px; height: 250px;
+            position: relative; width: 132px; height: 132px;
             display: flex; justify-content: center; align-items: center;
             flex-shrink: 0; align-self: center; flex-direction: column;
             /* El canvas 3D ocupa la pantalla, pero este contenedor sitúa lógicamente los subtítulos */
@@ -65,10 +65,10 @@
 
         /* Subtitles */
         .subtitles {
-            position: absolute; bottom: -65px; left: 50%; transform: translateX(-50%);
-            width: 480px; max-width: 90vw; text-align: center;
+            position: absolute; bottom: -34px; left: 50%; transform: translateX(-50%);
+            width: 220px; max-width: 82vw; text-align: center;
             font-family: 'Outfit', sans-serif;
-            font-size: 1.3rem; font-weight: 300; letter-spacing: 1px;
+            font-size: 0.86rem; font-weight: 300; letter-spacing: 0.35px;
             color: rgba(255,255,255,0.9);
             text-shadow: 0 4px 15px rgba(0,0,0,0.8), 0 0 20px var(--idle-color);
             min-height: 2em; pointer-events: none;
@@ -1163,7 +1163,7 @@
         // ═══════════════════════════════════════════════════════
         // ZOOM CONTROLLER
         // ═══════════════════════════════════════════════════════
-        const zoomConfig = { current:8.5, target:8.5, speed:0.05 };
+        const zoomConfig = { current:9.6, target:9.6, speed:0.05 };
 
         // ═══════════════════════════════════════════════════════
         // FPS MONITOR (adaptive quality)
@@ -1187,11 +1187,11 @@
         let processingWobble=0, bloomTargetStrength=0.45;
 
         const stateCfg = {
-            idle:       { ring:0xffffff, halo:0xffffff, glow:0x888888, bloom:0.35, jetOp:0.08,  zoom:8.5, lensStr:0.045 },
-            processing: { ring:0xc026d3, halo:0xc026d3, glow:0xc026d3, bloom:0.55, jetOp:0.40,  zoom:7.0, lensStr:0.060 },
-            speaking:   { ring:0xffffff, halo:0xffffff, glow:0xaaaaaa, bloom:0.50, jetOp:0.06,  zoom:7.5, lensStr:0.045 },
-            listening:  { ring:0x00e5bc, halo:0x00e5bc, glow:0x00e5bc, bloom:0.30, jetOp:0.05,  zoom:8.0, lensStr:0.035 },
-            error:      { ring:0xff3333, halo:0xff3333, glow:0xff3333, bloom:0.65, jetOp:0.15,  zoom:9.5, lensStr:0.045 }
+            idle:       { ring:0xffffff, halo:0xffffff, glow:0x888888, bloom:0.35, jetOp:0.08,  zoom:9.6, lensStr:0.045 },
+            processing: { ring:0xc026d3, halo:0xc026d3, glow:0xc026d3, bloom:0.55, jetOp:0.40,  zoom:7.8, lensStr:0.060 },
+            speaking:   { ring:0xffffff, halo:0xffffff, glow:0xaaaaaa, bloom:0.50, jetOp:0.06,  zoom:8.7, lensStr:0.045 },
+            listening:  { ring:0x00e5bc, halo:0x00e5bc, glow:0x00e5bc, bloom:0.30, jetOp:0.05,  zoom:9.2, lensStr:0.035 },
+            error:      { ring:0xff3333, halo:0xff3333, glow:0xff3333, bloom:0.65, jetOp:0.15,  zoom:10.2, lensStr:0.045 }
         };
 
         window.update3DAvatar = function(state, dataArray, avgVol) {
@@ -1594,8 +1594,8 @@
                 const screenHeight3D = 2 * camera.position.z * Math.tan(fovRad);
                 const screenWidth3D = screenHeight3D * camera.aspect;
                 const containerWidth3D = (rect.width / window.innerWidth) * screenWidth3D;
-                // Scale coreGroup so that its max size (diameter ~7.5 units) fits the container width
-                baseScale = containerWidth3D / 7.5;
+                // Slightly tighter fit so the avatar feels denser without losing breathing room
+                baseScale = containerWidth3D / 13.0;
             }
 
             // Apply scale

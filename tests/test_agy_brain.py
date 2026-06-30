@@ -29,9 +29,41 @@ def setup_and_teardown_db():
         except:
             pass
 
+@patch("requests.post")
+def test_agy_brain_ask_success(mock_post):
+    # Setup mock for triage (returns SIMPLE)
+    mock_triage_resp = MagicMock()
+    mock_triage_resp.status_code = 200
+    mock_triage_resp.json.return_value = {
+        "choices": [{"message": {"content": "SIMPLE"}}]
+    }
+    
+    # Setup mock for chat response
+    mock_chat_resp = MagicMock()
+    mock_chat_resp.status_code = 200
+    mock_chat_resp.json.return_value = {
+        "choices": [{"message": {"content": "Respuesta de OpenClaw"}}]
+    }
+    
+    mock_post.side_effect = [mock_triage_resp, mock_chat_resp]
+
+    brain = AgyBrain(".")
+    response = brain.ask("Hola")
+
+    assert response == "Respuesta de OpenClaw"
+    assert mock_post.call_count == 2
+    
+    # Active engine should be logged as OpenClaw
+    active = get_tool_failure_status("active_engine")["disabled_until"]
+    assert active == "OpenClaw"
+
 @patch("subprocess.run")
-def test_agy_brain_ask_success(mock_run):
-    # Mock subprocess.run for Codex writing to temporal output file
+@patch("requests.post")
+def test_agy_brain_ask_fallback_to_codex(mock_post, mock_run):
+    # Mock OpenClaw failing
+    mock_post.side_effect = requests.exceptions.ConnectionError("Connection refused")
+
+    # Mock Codex succeeding
     def mock_run_side_effect(args, **kwargs):
         try:
             o_idx = args.index("-o")
@@ -51,15 +83,20 @@ def test_agy_brain_ask_success(mock_run):
     response = brain.ask("Hola")
 
     assert response == "Respuesta de Codex mockeada"
-    # triage + completion calls
+    # OpenClaw attempted, fell back to Codex
+    # Codex run: 1 triage + 1 completion = 2 calls
     assert mock_run.call_count == 2
-    
+
     # Active engine should be logged as Codex
     active = get_tool_failure_status("active_engine")["disabled_until"]
     assert active == "Codex"
 
 @patch("subprocess.run")
-def test_agy_brain_ask_fallback_enqueue(mock_run):
+@patch("requests.post")
+def test_agy_brain_ask_fallback_enqueue(mock_post, mock_run):
+    # Mock OpenClaw failing
+    mock_post.side_effect = requests.exceptions.ConnectionError("Connection refused")
+    
     # Force Codex failure (returncode = 1)
     mock_res = MagicMock()
     mock_res.returncode = 1
@@ -70,7 +107,6 @@ def test_agy_brain_ask_fallback_enqueue(mock_run):
     response = brain.ask("Hola")
 
     assert "encolada" in response
-    # triage check failed and returned "", ask() attempted to run codex, failed, and enqueued
     # Verify no agy CLI calls were made
     for call in mock_run.call_args_list:
         args = call[0][0]
