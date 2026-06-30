@@ -265,7 +265,9 @@ def generate_audio_response(audio_bytes: bytes, mime_type: str = "audio/wav") ->
                 "You have access to tools for listing files, reading files, and checking the weather. "
                 "Always check the files in the workspace using list_workspace_files if the user asks "
                 "about project files, configuration, or plans. "
-                "You are receiving a voice prompt. Answer in a natural, conversational way in Spanish."
+                "You are receiving a voice prompt. Answer in a natural, conversational way in Spanish. "
+                "Your text response will be converted to speech automatically, so speak directly "
+                "as if you are speaking to the user. Never say you cannot speak or use voice."
             )
         )
     )
@@ -282,7 +284,7 @@ def generate_audio_response(audio_bytes: bytes, mime_type: str = "audio/wav") ->
     response = chat.send_message(
         [
             audio_part,
-            "Responde en español de forma directa al comando de voz, ejecutando herramientas si es necesario."
+            "Responde de forma directa al comando de voz anterior en español."
         ]
     )
     
