@@ -879,35 +879,47 @@
         tiltedGroup.add(accretionRing);
 
         // ── RELATIVISTIC JETS — helicoidal particle streams ──
-        const JET_PARTICLES = 600;
-        const jetPositions  = new Float32Array(JET_PARTICLES * 3);
-        const jetColors     = new Float32Array(JET_PARTICLES * 3);
-        const jetCustomData = [];
+        // ── TESLA COIL LIGHTNING — rayos que huyen del ratón ──
+        const TESLA_ARMS    = 12;   // rayos simultáneos
+        const TESLA_SEGS    = 14;   // segmentos por rayo (más = más zigzag)
+        const TESLA_PTS     = TESLA_ARMS * TESLA_SEGS; // puntos totales de línea
 
-        for (let i = 0; i < JET_PARTICLES; i++) {
-            const direction = i < JET_PARTICLES/2 ? 1 : -1;
-            const progress  = (i % (JET_PARTICLES/2)) / (JET_PARTICLES/2);
-            const y = direction * (0.8 + progress * 6.0);
-            const coneR = 0.05 + Math.abs(y)*0.045;
-            const theta = Math.random() * Math.PI * 2;
-            jetPositions[i*3]=Math.cos(theta)*coneR; jetPositions[i*3+1]=y; jetPositions[i*3+2]=Math.sin(theta)*coneR;
-            const br = 0.5 + (1-progress)*0.5;
-            jetColors[i*3]=br; jetColors[i*3+1]=br; jetColors[i*3+2]=br;
-            jetCustomData.push({ direction, speed:3.5+Math.random()*5, theta, helixPhase:Math.random()*Math.PI*2 });
+        // Cada rayo es una polyline: TESLA_SEGS puntos
+        // Almacenamos todos los brazos en un solo BufferGeometry de LineSegments
+        // (cada segmento = par de puntos: inicio → fin)
+        const TESLA_SEG_PAIRS = TESLA_ARMS * (TESLA_SEGS - 1); // segmentos dibujados
+        const teslaPosArr = new Float32Array(TESLA_SEG_PAIRS * 2 * 3); // 2 pts por segmento, xyz
+        const teslaColArr = new Float32Array(TESLA_SEG_PAIRS * 2 * 3);
+
+        const teslaGeo = new THREE.BufferGeometry();
+        teslaGeo.setAttribute('position', new THREE.BufferAttribute(teslaPosArr, 3));
+        teslaGeo.setAttribute('color',    new THREE.BufferAttribute(teslaColArr, 3));
+        teslaGeo.attributes.position.usage = THREE.DynamicDrawUsage;
+        teslaGeo.attributes.color.usage    = THREE.DynamicDrawUsage;
+
+        const teslaMat = new THREE.LineBasicMaterial({
+            vertexColors: true, transparent: true, opacity: 0.0,
+            blending: THREE.AdditiveBlending, depthWrite: false, linewidth: 1
+        });
+        const teslaLines = new THREE.LineSegments(teslaGeo, teslaMat);
+        teslaLines.name = 'jets';
+        scene.add(teslaLines);  // en scene, no en coreGroup, para coordenadas mundo
+
+        // Datos por rayo: ángulo base fijo, longitud, fase de ruido
+        const teslaArmData = [];
+        for (let a = 0; a < TESLA_ARMS; a++) {
+            teslaArmData.push({
+                baseAngle:  (a / TESLA_ARMS) * Math.PI * 2,   // distribución radial uniforme
+                length:     3.5 + Math.random() * 2.5,
+                noiseOff:   Math.random() * 100,
+                speed:      0.8 + Math.random() * 1.2,        // velocidad de regeneración
+                timer:      Math.random() * 0.1               // offset de tiempo inicial
+            });
         }
 
-        const jetGeo = new THREE.BufferGeometry();
-        jetGeo.setAttribute('position', new THREE.BufferAttribute(jetPositions, 3));
-        jetGeo.setAttribute('color',    new THREE.BufferAttribute(jetColors, 3));
-        jetGeo.attributes.position.usage = THREE.DynamicDrawUsage;
-
-        const jetMat = new THREE.PointsMaterial({
-            size:0.10, vertexColors:true, transparent:true, opacity:0.0,
-            blending:THREE.AdditiveBlending, sizeAttenuation:true, depthWrite:false
-        });
-        const relativisticJets = new THREE.Points(jetGeo, jetMat);
-        relativisticJets.name = 'jets';
-        coreGroup.add(relativisticJets);
+        // Variable de control de opacidad (reemplaza jetMat.opacity)
+        let teslaOpacity = 0.0;
+        let teslaTargetOpacity = 0.0;
 
         // ── LENSED HALO — Einstein ring particles ──
         const HALO_PARTICLES = 800;
@@ -985,7 +997,7 @@
 
         canvas.addEventListener('click', (e) => {
             raycaster.setFromCamera(mouseVec, camera);
-            const hits = raycaster.intersectObjects([eventHorizon, accretionDisk, relativisticJets], true);
+            const hits = raycaster.intersectObjects([eventHorizon, accretionDisk, teslaLines], true);
             if (!hits.length) return;
             const obj = hits[0].object;
             if (obj === eventHorizon) {
@@ -995,9 +1007,9 @@
                 const v = Math.round(30000 / Math.sqrt(2.8));
                 showTooltip('Velocidad orbital: ~' + v.toLocaleString() + ' km/s', e.clientX, e.clientY);
                 setTimeout(hideTooltip, 2500);
-            } else if (obj === relativisticJets) {
-                jetMat.opacity = jetMat.opacity > 0.5 ? 0.0 : 0.9;
-                showTooltip('Jets: ' + (jetMat.opacity > 0.5 ? 'Visibles' : 'Ocultos'), e.clientX, e.clientY);
+            } else if (obj === teslaLines) {
+                teslaTargetOpacity = teslaTargetOpacity > 0.5 ? 0.0 : 0.9;
+                showTooltip('Tesla: ' + (teslaTargetOpacity > 0.5 ? 'Activado' : 'Apagado'), e.clientX, e.clientY);
                 setTimeout(hideTooltip, 1500);
             }
         });
@@ -1009,7 +1021,7 @@
             const dir = vecT.sub(camera.position).normalize();
             mouseWorld.copy(camera.position).addScaledVector(dir, -camera.position.z / dir.z);
             raycaster.setFromCamera(mouseVec, camera);
-            const hits = raycaster.intersectObjects([accretionDisk, eventHorizon, relativisticJets], true);
+            const hits = raycaster.intersectObjects([accretionDisk, eventHorizon, teslaLines], true);
             canvas.style.cursor = hits.length ? 'pointer' : 'default';
         });
 
@@ -1105,7 +1117,7 @@
             haloMat.color.setHex(cfg.halo);
             glowMat.color.setHex(cfg.glow);
             bloomTargetStrength  = cfg.bloom;
-            jetMat.opacity       = cfg.jetOp;
+            teslaTargetOpacity   = cfg.jetOp;
             zoomConfig.target    = cfg.zoom;
             lensingPass.uniforms.uStrength.value = cfg.lensStr;
         };
@@ -1287,26 +1299,105 @@
             }
             haloPosAttr.needsUpdate = true;
 
-            // Relativistic jets — helicoidal animation
-            const jetPosAttr = relativisticJets.geometry.attributes.position;
-            const showJets   = currentAvatarState==='processing';
-            for (let i=0; i<JET_PARTICLES; i++) {
-                const d=jetCustomData[i];
-                const sign=d.direction;
-                const twistAmp=showJets?0.22:0.04;
-                const helixA=elapsed*(showJets?6.0:1.5)+d.helixPhase;
-                let yPos=jetPosAttr.getY(i);
-                yPos+=sign*(showJets ? d.speed*(1+Math.sin(elapsed*5+i*0.05)*0.3) : d.speed*0.25)*dt;
-                if (sign>0&&yPos>6.5) yPos=0.8;
-                if (sign<0&&yPos<-6.5) yPos=-0.8;
-                const coneR=0.04+Math.abs(yPos)*0.042;
-                jetPosAttr.setXYZ(i,
-                    Math.cos(helixA+d.theta)*coneR*(1+twistAmp*Math.sin(elapsed*3)),
-                    yPos,
-                    Math.sin(helixA+d.theta)*coneR*(1+twistAmp*Math.cos(elapsed*2))
-                );
+            // ── TESLA COIL — rayos zigzag que huyen del ratón ──
+            teslaOpacity += (teslaTargetOpacity - teslaOpacity) * 0.08;
+            teslaMat.opacity = teslaOpacity;
+
+            if (teslaOpacity > 0.01) {
+                // Origen en el coreGroup, en coordenadas mundo
+                const origin = new THREE.Vector3();
+                coreGroup.getWorldPosition(origin);
+
+                // Vector ratón en mundo (ya existe mouseWorld)
+                const mw = mouseWorld.clone();
+
+                const tPos = teslaGeo.attributes.position;
+                const tCol = teslaGeo.attributes.color;
+
+                // Intensidad extra en processing
+                const intensity = currentAvatarState==='processing' ? 1.0 : 0.65;
+                // Regenerar más rápido en processing
+                const regenRate = currentAvatarState==='processing' ? 8.0 : 3.5;
+
+                let segIdx = 0; // índice de par de segmentos
+
+                for (let a = 0; a < TESLA_ARMS; a++) {
+                    const arm = teslaArmData[a];
+                    arm.timer += dt * regenRate;
+
+                    // Ángulo base gira lentamente + se regenera periódicamente
+                    const baseA = arm.baseAngle + elapsed * 0.15 * (a % 2 === 0 ? 1 : -1);
+
+                    // Dirección base 2D del rayo (en el plano XY de pantalla)
+                    const dirX = Math.cos(baseA);
+                    const dirY = Math.sin(baseA);
+
+                    // Vector perpendicular al rayo (para zigzag)
+                    const perpX = -dirY;
+                    const perpY =  dirX;
+
+                    // Vector de huida del ratón: apunta LEJOS del cursor desde el origen
+                    const toMouse = new THREE.Vector3(
+                        mw.x - origin.x, mw.y - origin.y, 0
+                    );
+                    const mouseDist = toMouse.length() + 0.001;
+                    // Fuerza de desvío: más fuerte cuanto más cerca esté el ratón
+                    const fleeStr = Math.min(1.5, 3.5 / (mouseDist * mouseDist + 0.5));
+                    // Componente de huida proyectada sobre la perp del rayo
+                    const fleeDot = (-toMouse.x / mouseDist) * perpX + (-toMouse.y / mouseDist) * perpY;
+
+                    // Construir los puntos del rayo segmento a segmento
+                    let px = origin.x, py = origin.y;
+                    const armLen = arm.length * (0.85 + Math.sin(arm.timer * 0.7 + a) * 0.15);
+
+                    // Punto anterior (inicio del primer segmento)
+                    let prevX = px, prevY = py;
+
+                    for (let s = 1; s < TESLA_SEGS; s++) {
+                        const t = s / (TESLA_SEGS - 1); // 0..1 a lo largo del rayo
+
+                        // Posición base a lo largo del eje del rayo
+                        const baseX = origin.x + dirX * t * armLen;
+                        const baseY = origin.y + dirY * t * armLen;
+
+                        // Ruido pseudo-aleatorio regenerado por timer
+                        const noiseT = arm.noiseOff + arm.timer + s * 0.9 + a * 3.7;
+                        const jitter = (Math.sin(noiseT * 2.3) * Math.cos(noiseT * 1.7)) * 0.6;
+
+                        // Zigzag perpendicular (alterna signo por segmento)
+                        const zigzag = jitter * (1.0 - t * 0.5); // se amortigua en la punta
+
+                        // Desvío de huida: máximo en la parte media del rayo
+                        const fleeShape = Math.sin(t * Math.PI); // 0 en base, máx en medio, 0 en punta
+                        const fleeX = perpX * fleeDot * fleeStr * fleeShape * armLen * 0.5;
+                        const fleeY = perpY * fleeDot * fleeStr * fleeShape * armLen * 0.5;
+
+                        const curX = baseX + perpX * zigzag + fleeX;
+                        const curY = baseY + perpY * zigzag + fleeY;
+
+                        // Guardar par de vértices (segmento prevX,prevY → curX,curY)
+                        const vi = segIdx * 2;
+                        // Vértice A (inicio segmento)
+                        tPos.setXYZ(vi,   prevX, prevY, 0);
+                        // Vértice B (fin segmento)
+                        tPos.setXYZ(vi+1, curX,  curY,  0);
+
+                        // Color: más brillante en la base, desvanece en la punta
+                        const bright = intensity * (1.0 - t * 0.75);
+                        tCol.setXYZ(vi,   bright, bright, bright);
+                        tCol.setXYZ(vi+1, bright * 0.6, bright * 0.6, bright * 0.6);
+
+                        prevX = curX; prevY = curY;
+                        segIdx++;
+                    }
+                }
+
+                tPos.needsUpdate = true;
+                tCol.needsUpdate = true;
+
+                // Sincronizar posición del objeto con el origen (para raycasting)
+                teslaLines.position.set(0, 0, 0);
             }
-            jetPosAttr.needsUpdate = true;
 
             // Speaking shockwave rings
             if (currentAvatarState==='speaking' && elapsed-lastShockwaveTime>0.22) {
