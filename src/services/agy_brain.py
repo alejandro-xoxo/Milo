@@ -18,19 +18,23 @@ class AgyBrain:
     def __init__(self, project_path: str):
         self.project_path = project_path
 
-    def ask(self, prompt: str, mode: str = "chat") -> str:
+    def ask(self, prompt: str, mode: str = "chat", status_callback=None) -> str:
         """
-        Envía un prompt a agy. Si falla por cuotas o circuit breaker,
+        Envía un prompt a agy (Vulcan). Si falla por cuotas o circuit breaker,
         hace fallback a OpenClaw.
         """
         use_openclaw = False
         agy_error = ""
 
-        # 1. Verificar Circuit Breaker para 'agy'
+        # Reportar estado inicial a la UX
+        if status_callback:
+            status_callback("Invocando Vulcan (CLI)...")
+
+        # 1. Verificar Circuit Breaker para 'vulcan' (reemplaza 'agy')
         try:
-            check_circuit_breaker("agy")
+            check_circuit_breaker("vulcan")
         except ToolDisabledException as tde:
-            logger.warning(f"AgyBrain: agy bloqueado por Circuit Breaker: {tde}")
+            logger.warning(f"AgyBrain: Vulcan bloqueado por Circuit Breaker: {tde}")
             use_openclaw = True
             agy_error = str(tde)
 
@@ -50,35 +54,41 @@ class AgyBrain:
                     is_quota = any(kw in stderr_lower for kw in ["quota", "limit", "429", "exhausted", "resource_exhausted"])
                     logger.error(f"Error en AgyBrain (returncode={result.returncode}): {result.stderr}")
                     
-                    # Registrar fallo en el circuit breaker
-                    record_tool_failure("agy")
-                    log_incident("agy", result.stderr.strip(), {"prompt": prompt, "is_quota": is_quota})
+                    # Registrar fallo en el circuit breaker bajo el nombre 'vulcan'
+                    record_tool_failure("vulcan")
+                    log_incident("vulcan", result.stderr.strip(), {"prompt": prompt, "is_quota": is_quota})
                     
                     agy_error = result.stderr.strip()
                     use_openclaw = True
                 else:
                     # Éxito: resetear fallos del circuit breaker
-                    reset_tool_failures("agy")
-                    self._log_active_engine("agy")
+                    reset_tool_failures("vulcan")
+                    self._log_active_engine("vulcan")
+                    if status_callback:
+                        status_callback("Resuelto mediante Vulcan (CLI).")
                     return self._parse_output(result.stdout)
 
             except Exception as e:
-                logger.error(f"Excepción en AgyBrain al invocar agy: {e}")
-                record_tool_failure("agy")
-                log_incident("agy", str(e), {"prompt": prompt})
+                logger.error(f"Excepción en AgyBrain al invocar agy (Vulcan): {e}")
+                record_tool_failure("vulcan")
+                log_incident("vulcan", str(e), {"prompt": prompt})
                 agy_error = str(e)
                 use_openclaw = True
 
         # 3. Fallback a OpenClaw
         if use_openclaw:
+            if status_callback:
+                status_callback("Vulcan sin cuota. Desviando a OpenClaw...")
             logger.info("Iniciando fallback a OpenClaw...")
             openclaw_res = self._ask_openclaw(prompt)
             if openclaw_res:
                 self._log_active_engine("openclaw")
+                if status_callback:
+                    status_callback("Resuelto mediante OpenClaw.")
                 return openclaw_res
             else:
                 # Si OpenClaw también falló, devolver el error original de agy
-                return f"[MILO] No pude completar la solicitud. Agy falló ({agy_error}) y OpenClaw no está disponible."
+                return f"[MILO] No pude completar la solicitud. Vulcan falló ({agy_error}) y OpenClaw no está disponible."
 
     def _ask_openclaw(self, prompt: str) -> str:
         url = os.getenv("OPENCLAW_URL", "http://127.0.0.1:18789")

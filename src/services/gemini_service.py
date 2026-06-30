@@ -89,7 +89,7 @@ def generate_response(prompt: str, status_callback=None) -> dict:
     
     try:
         # Aquí Agy hace todo su magia nativa, incluyendo llamadas a herramientas internas.
-        response_text = brain.ask(prompt, mode="chat")
+        response_text = brain.ask(prompt, mode="chat", status_callback=status_callback)
     finally:
         stop_simulation.set()
         if sim_thread:
@@ -99,7 +99,7 @@ def generate_response(prompt: str, status_callback=None) -> dict:
         status_callback("Proceso completado.")
 
     from src.services.db_service import get_tool_failure_status
-    active_engine = get_tool_failure_status("active_engine")["disabled_until"] or "agy"
+    active_engine = get_tool_failure_status("active_engine")["disabled_until"] or "vulcan"
 
     return {
         "response": response_text,
@@ -203,7 +203,7 @@ def generate_audio_response(audio_bytes: bytes, mime_type: str = "audio/wav", st
 
     if not text.strip() or text.startswith("Error") or text.startswith("No pude"):
         from src.services.db_service import get_tool_failure_status
-        active_engine = get_tool_failure_status("active_engine")["disabled_until"] or "agy"
+        active_engine = get_tool_failure_status("active_engine")["disabled_until"] or "vulcan"
         return {"response": text, "execution_log": [], "provider": active_engine}
         
     return generate_response(text, status_callback)

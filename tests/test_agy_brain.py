@@ -38,9 +38,9 @@ def test_agy_brain_ask_success(mock_run):
     assert response == "Respuesta de Agy"
     mock_run.assert_called_once()
     
-    # Active engine should be agy
+    # Active engine should be vulcan
     active = get_tool_failure_status("active_engine")["disabled_until"]
-    assert active == "agy"
+    assert active == "vulcan"
 
 @patch("subprocess.run")
 @patch("requests.post")
@@ -72,8 +72,8 @@ def test_agy_brain_ask_fallback_on_429(mock_post, mock_run):
     mock_run.assert_called_once()
     mock_post.assert_called_once()
 
-    # Verify failure recorded for agy
-    agy_status = get_tool_failure_status("agy")
+    # Verify failure recorded for vulcan
+    agy_status = get_tool_failure_status("vulcan")
     assert agy_status["failure_count"] == 1
 
     # Active engine should be logged as openclaw
@@ -97,10 +97,10 @@ def test_agy_brain_ask_circuit_breaker(mock_post, mock_run):
     }
     mock_post.return_value = mock_response
 
-    # Force disable 'agy' in circuit breaker (5 failures)
+    # Force disable 'vulcan' in circuit breaker (5 failures)
     from src.services.db_service import record_tool_failure
     for _ in range(5):
-        record_tool_failure("agy", threshold=5)
+        record_tool_failure("vulcan", threshold=5)
 
     brain = AgyBrain(".")
     response = brain.ask("Hola")

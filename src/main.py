@@ -221,7 +221,7 @@ async def websocket_voice_endpoint(websocket: WebSocket):
             try:
                 # Detección de error de cuota (429) o cadena vacía (Agy falló o quedó sin cuota)
                 if not response_text or not response_text.strip():
-                    response_text = "Antigravity sin cuota por ahora, tu tarea quedó en cola."
+                    response_text = "Vulcan sin cuota por ahora, tu tarea quedó en cola."
                     await websocket.send_json({"type": "quota_error", "text": response_text})
                     tts = gTTS(text=response_text, lang='es')
                     fp = io.BytesIO()
