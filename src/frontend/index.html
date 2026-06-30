@@ -1170,27 +1170,27 @@
 
             // Hover proximity factor (se calcula primero para usarlo en todo)
             const distTP = Math.hypot(mouseWorld.x - coreGroup.position.x, mouseWorld.y - coreGroup.position.y);
-            const hoverFactor = Math.max(0, 1.0 - distTP / 8.0);
+            const hoverFactor = Math.max(0, 1.0 - distTP / 3.5);
 
             // Event horizon shader time + Hawking expand reactivo al hover
             horizonMat.uniforms.time.value = elapsed;
             const hoverHawking = currentAvatarState==='speaking'
                 ? (audioScale-1)*0.8
-                : hoverFactor * 0.9 * (0.7 + Math.sin(elapsed*6)*0.3);
+                : hoverFactor * 0.35 * (0.7 + Math.sin(elapsed*6)*0.3);
             horizonMat.uniforms.hawkingExpand.value = hoverHawking;
 
             // ── HOVER DISTORSION DEL AGUJERO NEGRO ──
             // El lensing se intensifica con el hover
             lensingPass.uniforms.uStrength.value +=
-                (lensingPass.uniforms.uStrength.value + hoverFactor*0.04 - lensingPass.uniforms.uStrength.value) * 0.05;
+                (lensingPass.uniforms.uStrength.value + hoverFactor*0.02 - lensingPass.uniforms.uStrength.value) * 0.18;
 
             // Bloom extra solo en hover (sutil)
             const hoverBloomBoost = hoverFactor * 0.18;
 
             // Hover ring: aparece y gira al acercarse el cursor
             const hoverTargetOp = hoverFactor * 0.55;
-            hoverRingMat.opacity += (hoverTargetOp - hoverRingMat.opacity) * 0.08;
-            hoverRingScale += (1.0 + hoverFactor * 0.10 + Math.sin(elapsed*4)*hoverFactor*0.05 - hoverRingScale) * 0.06;
+            hoverRingMat.opacity += (hoverTargetOp - hoverRingMat.opacity) * 0.18;
+            hoverRingScale += (1.0 + hoverFactor * 0.06 + Math.sin(elapsed*4)*hoverFactor*0.03 - hoverRingScale) * 0.14;
             hoverRing.scale.setScalar(hoverRingScale);
             hoverRing.rotation.z = elapsed * 0.55 + hoverFactor * elapsed * 0.8;
             hoverRing.rotation.x = Math.sin(elapsed * 0.5) * (0.2 + hoverFactor * 0.4);
@@ -1314,7 +1314,7 @@
                     // cada partícula se desplaza radialmente según su ángulo y el tiempo
                     const hoverWave = hoverFactor
                         * Math.sin(d.originalRadius * 2.8 - elapsed * 5.0 + d.angle * 0.5)
-                        * 0.55;
+                        * 0.20;
                     const hoverRippleX = (ox / (d.originalRadius + 0.001)) * hoverWave;
                     const hoverRippleZ = (oz / (d.originalRadius + 0.001)) * hoverWave;
                     const hoverRippleY = hoverFactor * Math.sin(d.angle * 3 + elapsed * 4) * 0.12;
