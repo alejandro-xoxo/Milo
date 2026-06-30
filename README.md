@@ -35,11 +35,21 @@ MILO es mucho más que un simple bot de chat. Es un orquestador inteligente que 
 
 ## 🚀 Guía de Inicio Rápido e Instalación
 
-Sigue las instrucciones según tu sistema operativo para configurar y ejecutar MILO localmente.
+Sigue estas instrucciones para hacer una instalación limpia de MILO desde cero y validar que el entorno quedó listo.
 
 ### 📋 Requisitos Previos Comunes
 1. Disponer de **Python 3.10 o superior** instalado.
 2. Contar con una API Key de Gemini desde [Google AI Studio](https://aistudio.google.com/) (si configuras claves directamente) o tener configurado OpenClaw/Antigravity CLI.
+3. Tener `ffmpeg` disponible en el sistema si vas a usar el flujo de audio.
+
+### ✅ Validación de la instalación
+La suite de pruebas se ejecuta con:
+
+```bash
+.venv/bin/python -m pytest
+```
+
+La configuración de `pytest` excluye directorios auxiliares como `scratch/` y `node_modules/`, para que la validación se centre en el código del proyecto y no falle por scripts manuales o dependencias externas.
 
 ---
 
@@ -65,7 +75,10 @@ source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# 6. Iniciar el servidor de FastAPI
+# 6. Ejecutar las pruebas unitarias
+python -m pytest
+
+# 7. Iniciar el servidor de FastAPI
 python -m src.main
 ```
 
@@ -91,7 +104,10 @@ python -m venv .venv
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 
-# 5. Ejecutar el servidor de FastAPI
+# 5. Ejecutar las pruebas unitarias
+python -m pytest
+
+# 6. Ejecutar el servidor de FastAPI
 python -m src.main
 ```
 
@@ -111,7 +127,10 @@ python -m venv .venv
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 
-:: 5. Ejecutar el servidor de FastAPI
+:: 5. Ejecutar las pruebas unitarias
+python -m pytest
+
+:: 6. Ejecutar el servidor de FastAPI
 python -m src.main
 ```
 
